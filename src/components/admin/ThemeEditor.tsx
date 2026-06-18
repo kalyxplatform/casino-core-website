@@ -150,16 +150,14 @@ export default function ThemeEditor() {
                     onClick={() => setBrandId(b.id)}
                     className="rounded-2xl p-3 text-left transition-all hover:scale-[1.02]"
                     style={{
-                      background: isActive
-                        ? `linear-gradient(135deg,${b.colors.primary}22,${b.colors.secondary}18)`
-                        : "var(--casino-surface-2)",
+                      background: isActive ? `${b.colors.primary}18` : "var(--casino-surface-2)",
                       border: `1.5px solid ${isActive ? b.colors.primary : "var(--casino-border)"}`,
                     }}
                   >
                     {/* Mini logo */}
                     <div
                       className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] text-white mb-2"
-                      style={{ background: `linear-gradient(135deg,${b.colors.primary},${b.colors.secondary})` }}
+                      style={{ background: b.colors.primary }}
                     >
                       {b.logoLetters}
                     </div>
@@ -208,11 +206,11 @@ export default function ThemeEditor() {
           {/* Live preview pill */}
           <div
             className="rounded-2xl p-3 text-center"
-            style={{ background: `linear-gradient(135deg,${brand.colors.primary}18,${brand.colors.secondary}12)`, border: `1px solid ${brand.colors.primary}44` }}
+            style={{ background: `${brand.colors.primary}12`, border: `1px solid ${brand.colors.primary}44` }}
           >
             <div
               className="w-10 h-10 rounded-xl mx-auto mb-2 flex items-center justify-center font-black text-xs text-white"
-              style={{ background: `linear-gradient(135deg,${brand.colors.primary},${brand.colors.secondary})` }}
+              style={{ background: brand.colors.primary }}
             >
               {brand.logoLetters}
             </div>
@@ -236,7 +234,7 @@ export default function ThemeEditor() {
           <button
             onClick={handleExport}
             className="flex-1 h-9 rounded-xl text-xs font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: `linear-gradient(135deg,${brand.colors.primary},${brand.colors.secondary})` }}
+            style={{ background: brand.colors.primary }}
           >
             {copied ? "✓ Copied!" : "Export Config"}
           </button>

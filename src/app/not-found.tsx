@@ -8,20 +8,8 @@ export default function NotFound() {
   const { brand } = useBrand();
 
   return (
-    <div className="relative overflow-hidden min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-16">
-      {/* Decorative glows */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full opacity-20"
-          style={{ background: "radial-gradient(circle,var(--casino-purple),transparent 70%)" }}
-        />
-        <div
-          className="absolute bottom-[-30%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-15"
-          style={{ background: "radial-gradient(circle,var(--casino-gold),transparent 70%)" }}
-        />
-      </div>
-
-      <div className="relative max-w-md mx-auto text-center">
+    <div className="relative overflow-hidden min-h-screen flex items-center justify-center py-16">
+      <div className="max-w-md mx-auto text-center">
         <div className="flex justify-center mb-6">
           <Logo size={56} letters={brand.logoLetters} />
         </div>
@@ -37,16 +25,9 @@ export default function NotFound() {
           Error 404
         </p>
 
-        <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-[1.05] mb-4">
-          <span
-            style={{
-              backgroundImage: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            Page Not Found
-          </span>
+        <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-[1.05] mb-4"
+          style={{ color: "var(--casino-purple-light)" }}>
+          Page Not Found
         </h1>
 
         <p className="text-base mb-8" style={{ color: "var(--casino-text-muted)" }}>
@@ -58,9 +39,9 @@ export default function NotFound() {
           <Link
             href="/"
             className="h-11 px-6 rounded-full text-sm font-semibold text-white inline-flex items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02]"
-            style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+            style={{ background: "var(--casino-purple)" }}
           >
-            🏠 Back to Lobby
+            🏠 Back to Casino
           </Link>
           <Link
             href="/games"

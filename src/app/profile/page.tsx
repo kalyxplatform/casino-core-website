@@ -295,7 +295,7 @@ function KYCSection() {
           </p>
           <button
             className="mt-3 h-8 px-5 rounded-full text-xs font-bold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg,var(--casino-gold),#f97316)" }}
+            style={{ background: "var(--casino-gold)" }}
           >
             Start Verification
           </button>
@@ -367,9 +367,7 @@ function SaveButton({ onClick, saved, label = "Save Changes" }: { onClick: () =>
       onClick={onClick}
       className="h-9 px-5 rounded-full text-xs font-bold text-white transition-all hover:scale-105"
       style={{
-        background: saved
-          ? "linear-gradient(135deg,var(--casino-success),#0891b2)"
-          : "linear-gradient(135deg,var(--casino-purple),#4f46e5)",
+        background: saved ? "var(--casino-success)" : "var(--casino-purple)",
       }}
     >
       {saved ? "✓ Saved!" : label}

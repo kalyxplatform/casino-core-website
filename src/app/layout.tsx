@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { BrandProvider } from "@/context/BrandContext";
-import Header from "@/components/layout/Header";
+import AppSidebar from "@/components/layout/AppSidebar";
+import AppHeader from "@/components/layout/AppHeader";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
 import AuthModal from "@/components/auth/AuthModal";
@@ -31,9 +32,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col">
         <BrandProvider>
           <AuthProvider>
-            <Header />
-            <main className="flex-1 pb-16 md:pb-0">{children}</main>
-            <Footer />
+            <div className="flex flex-1 min-h-full">
+              <AppSidebar />
+              <div className="flex-1 flex flex-col min-w-0">
+                <AppHeader />
+                <main className="flex-1 pb-16 md:pb-0 w-full px-[3vw] flex flex-col items-center" style={{ background: "var(--casino-surface)" }}>
+                  <div className="w-full max-w-[1200px]">{children}</div>
+                </main>
+                <Footer />
+              </div>
+            </div>
             <MobileNav />
             <AuthModal />
             <GetCoinsModal />

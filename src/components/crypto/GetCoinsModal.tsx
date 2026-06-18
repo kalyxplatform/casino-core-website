@@ -153,7 +153,7 @@ export default function GetCoinsModal() {
       >
         {/* Top glow */}
         <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: "linear-gradient(90deg,transparent,var(--casino-gold),transparent)" }} />
+          style={{ background: "var(--casino-gold-bright)" }} />
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4"
@@ -271,9 +271,7 @@ function PackageStep({
           onClick={() => onSelect(p)}
           className="w-full rounded-2xl p-4 text-left transition-all hover:scale-[1.01]"
           style={{
-            background: selected.id === p.id
-              ? "linear-gradient(135deg,var(--casino-purple-soft),var(--casino-gold-soft))"
-              : "var(--casino-surface)",
+            background: selected.id === p.id ? "var(--casino-gold-soft)" : "var(--casino-surface)",
             border: `1.5px solid ${selected.id === p.id ? "var(--casino-gold)" : "var(--casino-border)"}`,
           }}
         >
@@ -284,7 +282,7 @@ function PackageStep({
                   borderColor: selected.id === p.id ? "var(--casino-gold)" : "var(--casino-border-bright)",
                   background: selected.id === p.id ? "var(--casino-gold)" : "transparent",
                 }}>
-                {selected.id === p.id && <span className="w-2 h-2 rounded-full bg-amber-950" />}
+                {selected.id === p.id && <span className="w-2 h-2 rounded-full" style={{ background: "#431407" }} />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -317,7 +315,7 @@ function PackageStep({
       <button
         onClick={onNext}
         className="w-full h-11 rounded-full font-bold text-sm text-white mt-2 transition-all hover:brightness-110 hover:scale-[1.02]"
-        style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+        style={{ background: "var(--casino-purple)" }}
       >
         {isLoggedIn ? `Continue with ${fmtCompact(selected.gc)} GC Pack →` : "Sign Up to Purchase →"}
       </button>
@@ -380,7 +378,7 @@ function CryptoStep({
         <button
           onClick={onNext}
           className="flex-1 h-10 rounded-full text-sm font-bold text-white transition-all hover:brightness-110"
-          style={{ background: `linear-gradient(135deg,${selected.color},var(--casino-purple))` }}
+          style={{ background: selected.color }}
         >
           Pay with {selected.symbol} →
         </button>
@@ -474,7 +472,7 @@ function AddressStep({
         <button
           onClick={onConfirm}
           className="flex-1 h-10 rounded-full text-sm font-bold text-white transition-all hover:brightness-110"
-          style={{ background: "linear-gradient(135deg,var(--casino-success),#0891b2)" }}
+          style={{ background: "var(--casino-success)" }}
         >
           I've Sent the Payment ✓
         </button>
@@ -509,7 +507,7 @@ function SuccessStep({ pkg, coin, onDone }: { pkg: Package; coin: CryptoOption; 
       <button
         onClick={onDone}
         className="w-full h-10 rounded-full text-sm font-bold text-white transition-all hover:brightness-110"
-        style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+        style={{ background: "var(--casino-purple)" }}
       >
         Back to Casino
       </button>

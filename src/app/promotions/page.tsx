@@ -10,10 +10,10 @@ const PROMOS = [
     subtitle: "50,000 Gold Coins + 1.00 Sweep Coin",
     desc: "Create your free account and instantly receive 50,000 Gold Coins plus 1 Sweep Coin — no purchase required. Use GC to play any slot or table game from day one.",
     cta: "Claim Now",
-    ctaColor: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))",
+    ctaColor: "var(--casino-purple)",
     highlight: true,
-    bg: "linear-gradient(135deg,var(--casino-purple-soft),var(--casino-gold-soft))",
-    border: "var(--casino-gold-bright)",
+    bg: "var(--casino-purple-soft)",
+    border: "var(--casino-purple-bright)",
     emoji: "🎁",
     terms: "No purchase necessary. 18+ only. Available to new accounts only.",
   },
@@ -24,10 +24,10 @@ const PROMOS = [
     subtitle: "Up to 5,000 GC + 0.10 SC free",
     desc: "Log in every day to collect your daily reward. Your bonus grows the longer your login streak — hit 7 days in a row to unlock the weekly multiplier.",
     cta: "Log In to Collect",
-    ctaColor: "linear-gradient(135deg,#059669,#0891b2)",
+    ctaColor: "#059669",
     highlight: false,
-    bg: "linear-gradient(135deg,rgba(5,150,105,.1),rgba(8,145,178,.1))",
-    border: "rgba(5,150,105,.3)",
+    bg: "rgba(3,230,37,0.07)",
+    border: "rgba(3,230,37,0.20)",
     emoji: "📅",
     terms: "Resets every 24 hours. Must be logged in to collect.",
   },
@@ -38,10 +38,10 @@ const PROMOS = [
     subtitle: "Up to 100,000 GC every week",
     desc: "Every Monday you receive a reload bonus based on your activity the previous week. The more you play, the bigger your Monday surprise.",
     cta: "See Eligibility",
-    ctaColor: "linear-gradient(135deg,#4f46e5,#7c3aed)",
+    ctaColor: "var(--casino-purple)",
     highlight: false,
-    bg: "linear-gradient(135deg,rgba(79,70,229,.1),rgba(124,58,237,.1))",
-    border: "rgba(79,70,229,.3)",
+    bg: "var(--casino-purple-soft)",
+    border: "var(--casino-purple-bright)",
     emoji: "📆",
     terms: "Amount varies based on previous week's play. Must have played at least 3 days.",
   },
@@ -52,10 +52,10 @@ const PROMOS = [
     subtitle: "10,000 GC + 0.25 SC per referral",
     desc: "Share your unique referral link. When a friend signs up and plays their first game, you both get rewarded. No limit on how many friends you can refer.",
     cta: "Get Your Link",
-    ctaColor: "linear-gradient(135deg,#b45309,#f59e0b)",
+    ctaColor: "var(--casino-gold)",
     highlight: false,
-    bg: "linear-gradient(135deg,rgba(180,83,9,.1),rgba(245,158,11,.1))",
-    border: "rgba(245,158,11,.25)",
+    bg: "var(--casino-gold-soft)",
+    border: "var(--casino-gold-bright)",
     emoji: "👥",
     terms: "Friend must register via your link and complete first game session.",
   },
@@ -66,10 +66,10 @@ const PROMOS = [
     subtitle: "Up to 20% weekly cashback",
     desc: "Gold and above VIP tiers receive automatic cashback every Sunday based on net GC activity. The higher your tier, the higher your cashback percentage.",
     cta: "Check VIP Status",
-    ctaColor: "linear-gradient(135deg,#7c3aed,#06b6d4)",
+    ctaColor: "var(--casino-purple)",
     highlight: false,
-    bg: "linear-gradient(135deg,rgba(124,58,237,.1),rgba(6,182,212,.1))",
-    border: "rgba(124,58,237,.3)",
+    bg: "var(--casino-purple-soft)",
+    border: "var(--casino-purple-bright)",
     emoji: "👑",
     terms: "Available to Gold tier and above. Credited every Sunday.",
   },
@@ -80,10 +80,10 @@ const PROMOS = [
     subtitle: "2× XP on all games",
     desc: "Every weekend, every game played earns double XP toward your VIP level. Level up faster, unlock higher tiers, and enjoy better perks — all weekend long.",
     cta: "Play This Weekend",
-    ctaColor: "linear-gradient(135deg,#dc2626,#f97316)",
+    ctaColor: "#dc2626",
     highlight: false,
-    bg: "linear-gradient(135deg,rgba(220,38,38,.1),rgba(249,115,22,.1))",
-    border: "rgba(220,38,38,.25)",
+    bg: "rgba(220,38,38,0.07)",
+    border: "rgba(220,38,38,0.22)",
     emoji: "🔥",
     terms: "Double XP applies Friday 00:00 UTC through Sunday 23:59 UTC.",
   },
@@ -99,21 +99,11 @@ export default function PromotionsPage() {
         className="relative overflow-hidden py-14 text-center"
         style={{ background: "var(--casino-surface)" }}
       >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-40%] left-[10%] w-96 h-96 rounded-full opacity-15"
-            style={{ background: "radial-gradient(circle,var(--casino-purple),transparent 70%)" }} />
-          <div className="absolute bottom-[-40%] right-[5%] w-80 h-80 rounded-full opacity-10"
-            style={{ background: "radial-gradient(circle,var(--casino-gold),transparent 70%)" }} />
-        </div>
-        <div className="relative max-w-2xl mx-auto px-4">
+        <div className="max-w-2xl mx-auto px-4">
           <span className="text-4xl block mb-4">🎁</span>
           <h1 className="text-3xl md:text-4xl font-black mb-3">
             Bonuses &amp;{" "}
-            <span style={{
-              backgroundImage: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>Promotions</span>
+            <span style={{ color: "var(--casino-purple-light)" }}>Promotions</span>
           </h1>
           <p className="text-base mb-6" style={{ color: "var(--casino-text-muted)" }}>
             Free coins, weekly rewards, cashback, and more — all at no cost to you.
@@ -122,7 +112,7 @@ export default function PromotionsPage() {
             <button
               onClick={() => openAuth("register")}
               className="h-11 px-8 rounded-full text-sm font-bold text-white transition-all hover:scale-105 hover:brightness-110"
-              style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+              style={{ background: "var(--casino-purple)" }}
             >
               Claim Welcome Bonus →
             </button>

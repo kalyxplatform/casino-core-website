@@ -64,7 +64,7 @@ function DashboardContent({ user, onLogout, onGetCoins }: { user: User; onLogout
         <div className="flex flex-col items-center gap-2 px-3 mb-6">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg animate-pulse-glow"
-            style={{ background: "linear-gradient(135deg,var(--casino-purple),#4f46e5)" }}
+            style={{ background: "var(--casino-purple)" }}
           >
             {user.avatarInitials}
           </div>
@@ -86,7 +86,7 @@ function DashboardContent({ user, onLogout, onGetCoins }: { user: User; onLogout
                 className="h-full rounded-full transition-all"
                 style={{
                   width: `${xpPct}%`,
-                  background: "linear-gradient(90deg,var(--casino-purple),var(--casino-gold))",
+                  background: "var(--casino-purple)",
                 }}
               />
             </div>
@@ -131,7 +131,7 @@ function DashboardContent({ user, onLogout, onGetCoins }: { user: User; onLogout
           <div
             className="relative overflow-hidden rounded-2xl p-6"
             style={{
-              background: "linear-gradient(135deg,var(--casino-purple-bright) 0%,var(--casino-gold-soft) 100%)",
+              background: "var(--casino-surface-2)",
               border: "1px solid var(--casino-border-bright)",
             }}
           >
@@ -147,7 +147,7 @@ function DashboardContent({ user, onLogout, onGetCoins }: { user: User; onLogout
               <button
                 onClick={onGetCoins}
                 className="h-14 px-6 rounded-2xl text-sm font-bold text-white flex items-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] self-stretch"
-                style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+                style={{ background: "var(--casino-purple)" }}
               >
                 🪙 Get More Coins
               </button>
@@ -247,7 +247,7 @@ function DailyBonus() {
       style={{
         background: collected
           ? "var(--casino-surface-2)"
-          : "linear-gradient(135deg,var(--casino-gold-soft),var(--casino-purple-soft))",
+          : "var(--casino-gold-soft)",
         border: `1px solid ${collected ? "var(--casino-border)" : "var(--casino-gold-bright)"}`,
       }}
     >
@@ -264,7 +264,7 @@ function DailyBonus() {
         <button
           onClick={() => setCollected(true)}
           className="shrink-0 h-9 px-5 rounded-full text-xs font-bold text-white transition-all hover:scale-105 hover:brightness-110"
-          style={{ background: "linear-gradient(135deg,var(--casino-gold),#f97316)" }}
+          style={{ background: "var(--casino-gold)" }}
         >
           Collect
         </button>
@@ -300,7 +300,7 @@ function VIPProgress({ level, xp, xpToNext }: { level: number; xp: number; xpToN
       <div className="h-2.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--casino-surface-3)" }}>
         <div
           className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: `linear-gradient(90deg,${tier.color},var(--casino-gold))` }}
+          style={{ width: `${pct}%`, background: tier.color }}
         />
       </div>
       <div className="flex justify-between text-xs" style={{ color: "var(--casino-text-muted)" }}>

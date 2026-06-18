@@ -26,13 +26,13 @@ export function brandCssVars(colors: BrandColors): string {
     + `--casino-border-bright:${colors.borderBright};`
     + `--casino-purple:${colors.primary};`
     + `--casino-purple-light:${colors.primaryLight};`
-    + `--casino-purple-soft:${hexToRgba(colors.primary, 0.15)};`
-    + `--casino-purple-bright:${hexToRgba(colors.primary, 0.35)};`
-    + `--casino-purple-glow:${hexToRgba(colors.primary, 0.28)};`
+    + `--casino-purple-soft:${hexToRgba(colors.primary, 0.10)};`
+    + `--casino-purple-bright:${hexToRgba(colors.primary, 0.24)};`
+    + `--casino-purple-glow:${hexToRgba(colors.primary, 0.18)};`
     + `--casino-gold:${colors.secondary};`
     + `--casino-gold-soft:${hexToRgba(colors.secondary, 0.10)};`
-    + `--casino-gold-bright:${hexToRgba(colors.secondary, 0.30)};`
-    + `--casino-gold-glow:${hexToRgba(colors.secondary, 0.25)};`
+    + `--casino-gold-bright:${hexToRgba(colors.secondary, 0.28)};`
+    + `--casino-gold-glow:${hexToRgba(colors.secondary, 0.20)};`
     + `--casino-text:${colors.text};`
     + `--casino-text-muted:${colors.textMuted};`
     + `--casino-success:${colors.success};`

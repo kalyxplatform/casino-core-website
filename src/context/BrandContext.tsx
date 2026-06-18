@@ -31,13 +31,13 @@ function applyBrand(colors: BrandColors) {
   s.setProperty("--casino-border-bright", colors.borderBright);
   s.setProperty("--casino-purple",        colors.primary);
   s.setProperty("--casino-purple-light",  colors.primaryLight);
-  s.setProperty("--casino-purple-soft",   hexToRgba(colors.primary, 0.15));
-  s.setProperty("--casino-purple-bright", hexToRgba(colors.primary, 0.35));
-  s.setProperty("--casino-purple-glow",   hexToRgba(colors.primary, 0.28));
+  s.setProperty("--casino-purple-soft",   hexToRgba(colors.primary, 0.10));
+  s.setProperty("--casino-purple-bright", hexToRgba(colors.primary, 0.24));
+  s.setProperty("--casino-purple-glow",   hexToRgba(colors.primary, 0.18));
   s.setProperty("--casino-gold",          colors.secondary);
   s.setProperty("--casino-gold-soft",     hexToRgba(colors.secondary, 0.10));
-  s.setProperty("--casino-gold-bright",   hexToRgba(colors.secondary, 0.30));
-  s.setProperty("--casino-gold-glow",     hexToRgba(colors.secondary, 0.25));
+  s.setProperty("--casino-gold-bright",   hexToRgba(colors.secondary, 0.28));
+  s.setProperty("--casino-gold-glow",     hexToRgba(colors.secondary, 0.20));
   s.setProperty("--casino-text",          colors.text);
   s.setProperty("--casino-text-muted",    colors.textMuted);
   s.setProperty("--casino-success",       colors.success);

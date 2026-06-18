@@ -41,22 +41,11 @@ export default function VIPPage() {
         className="relative overflow-hidden py-16 text-center"
         style={{ background: "var(--casino-surface)" }}
       >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-30%] left-[20%] w-96 h-96 rounded-full opacity-20"
-            style={{ background: "radial-gradient(circle,var(--casino-purple),transparent 70%)" }} />
-          <div className="absolute bottom-[-30%] right-[15%] w-80 h-80 rounded-full opacity-15"
-            style={{ background: "radial-gradient(circle,var(--casino-gold),transparent 70%)" }} />
-        </div>
-
-        <div className="relative max-w-3xl mx-auto px-4">
+        <div className="max-w-3xl mx-auto px-4">
           <span className="text-5xl block mb-4">👑</span>
           <h1 className="text-3xl md:text-5xl font-black mb-4">
             VIP{" "}
-            <span style={{
-              backgroundImage: "linear-gradient(135deg,var(--casino-gold),var(--casino-purple-light))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>Rewards Program</span>
+            <span style={{ color: "var(--casino-gold)" }}>Rewards Program</span>
           </h1>
           <p className="text-base md:text-lg mb-8 max-w-xl mx-auto" style={{ color: "var(--casino-text-muted)" }}>
             Five tiers, exclusive perks, and cashback that gets bigger the higher you climb.
@@ -107,7 +96,7 @@ export default function VIPPage() {
             <button
               onClick={() => openAuth("register")}
               className="mt-8 h-11 px-8 rounded-full text-sm font-bold text-white transition-all hover:scale-105 hover:brightness-110"
-              style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+              style={{ background: "var(--casino-purple)" }}
             >
               Start Earning XP Free →
             </button>
@@ -124,9 +113,7 @@ export default function VIPPage() {
               key={tier.name}
               className="relative rounded-2xl p-5 flex flex-col gap-3 transition-all hover:scale-[1.02]"
               style={{
-                background: tier.popular
-                  ? `linear-gradient(160deg,${tier.glow},var(--casino-purple-soft))`
-                  : "var(--casino-surface-2)",
+                background: tier.popular ? tier.glow : "var(--casino-surface-2)",
                 border: `1.5px solid ${tier.popular ? tier.color : "var(--casino-border)"}`,
               }}
             >

@@ -1,34 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --casino-bg:        #070711;
-  --casino-surface:   #0f0f1e;
-  --casino-surface-2: #16162a;
-  --casino-surface-3: #1e1e38;
-  --casino-border:       rgba(255,255,255,0.07);
-  --casino-border-bright: rgba(255,255,255,0.14);
+  --casino-bg:        #0d1b22;
+  --casino-surface:   #13232d;
+  --casino-surface-2: #1a2e39;
+  --casino-surface-3: #203743;
+  --casino-border:       rgba(131,163,182,0.12);
+  --casino-border-bright: rgba(131,163,182,0.24);
 
-  --casino-purple:        #7c3aed;
-  --casino-purple-mid:    #6d28d9;
-  --casino-purple-light:  #a78bfa;
-  --casino-purple-soft:   rgba(124,58,237,0.15);
-  --casino-purple-bright: rgba(124,58,237,0.35);
-  --casino-purple-glow:   rgba(124,58,237,0.28);
+  --casino-purple:        #1475e1;
+  --casino-purple-mid:    #0f66d0;
+  --casino-purple-light:  #64b2fa;
+  --casino-purple-soft:   rgba(20,117,225,0.10);
+  --casino-purple-bright: rgba(20,117,225,0.24);
+  --casino-purple-glow:   rgba(20,117,225,0.18);
 
-  --casino-gold:        #f59e0b;
-  --casino-gold-light:  #fcd34d;
-  --casino-gold-soft:   rgba(245,158,11,0.10);
-  --casino-gold-bright: rgba(245,158,11,0.30);
-  --casino-gold-glow:   rgba(245,158,11,0.25);
+  --casino-gold:        #ffa91f;
+  --casino-gold-light:  #ffc366;
+  --casino-gold-soft:   rgba(255,169,31,0.10);
+  --casino-gold-bright: rgba(255,169,31,0.28);
+  --casino-gold-glow:   rgba(255,169,31,0.20);
 
-  --casino-text:       #f1f0fa;
-  --casino-text-muted: #9ca3af;
+  --casino-text:       #f7fafc;
+  --casino-text-muted: #9fbed0;
 
-  --casino-success: #10b981;
-  --casino-error:   #f43f5e;
+  --casino-success: #03e625;
+  --casino-error:   #ff8391;
 
-  --casino-gc: #f59e0b;
-  --casino-sc: #06b6d4;
+  --casino-gc: #ffa91f;
+  --casino-sc: #1cc1ca;
 }
 
 @theme inline {
@@ -69,3 +69,6 @@ body {
 .animate-scale-in { animation: scale-in 0.2s  ease both; }
 .animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
 .animate-spin { animation: spin 0.8s linear infinite; }
+
+.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }

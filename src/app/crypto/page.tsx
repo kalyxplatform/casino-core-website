@@ -47,9 +47,9 @@ export default function CryptoPage() {
         <Link
           href="/"
           className="inline-flex h-10 px-6 rounded-full text-sm font-semibold text-white items-center"
-          style={{ background: "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))" }}
+          style={{ background: "var(--casino-purple)" }}
         >
-          Back to Lobby
+          Back to Casino
         </Link>
       </div>
     );
@@ -67,14 +67,7 @@ export default function CryptoPage() {
         className="relative overflow-hidden py-16 text-center"
         style={{ background: "var(--casino-surface)" }}
       >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-20%] right-[5%] w-96 h-96 rounded-full opacity-15"
-            style={{ background: "radial-gradient(circle,#F7931A,transparent 70%)" }} />
-          <div className="absolute bottom-[-20%] left-[5%] w-80 h-80 rounded-full opacity-10"
-            style={{ background: "radial-gradient(circle,#627EEA,transparent 70%)" }} />
-        </div>
-
-        <div className="relative max-w-2xl mx-auto px-4">
+        <div className="max-w-2xl mx-auto px-4">
           <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
             {CRYPTOS.slice(0, 6).map((c) => (
               <div key={c.id} className="hover:scale-110 transition-transform">
@@ -85,11 +78,7 @@ export default function CryptoPage() {
 
           <h1 className="text-3xl md:text-5xl font-black mb-4 leading-tight">
             Buy Coins with{" "}
-            <span style={{
-              backgroundImage: "linear-gradient(135deg,#F7931A,#627EEA)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>
+            <span style={{ color: "#F7931A" }}>
               Crypto
             </span>
           </h1>
@@ -103,7 +92,7 @@ export default function CryptoPage() {
             <button
               onClick={handleBuy}
               className="h-12 px-8 rounded-full text-sm font-bold text-white transition-all hover:scale-105 hover:brightness-110"
-              style={{ background: "linear-gradient(135deg,#F7931A,#627EEA)" }}
+              style={{ background: "#F7931A" }}
             >
               Buy Coins with Crypto →
             </button>
@@ -237,7 +226,7 @@ export default function CryptoPage() {
           <button
             onClick={handleBuy}
             className="h-11 px-10 rounded-full text-sm font-bold text-white transition-all hover:scale-105 hover:brightness-110"
-            style={{ background: "linear-gradient(135deg,#F7931A,#627EEA)" }}
+            style={{ background: "#F7931A" }}
           >
             Buy Coins with Crypto →
           </button>

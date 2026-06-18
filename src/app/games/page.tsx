@@ -2,9 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import { GAMES, CATEGORIES } from "@/data/games";
 import { GameCard } from "@/components/games/GameCard";
-import { ProviderStrip } from "@/components/games/ProviderStrip";
+import { ProviderPills } from "@/components/games/ProviderPills";
+import { CardFooter } from "@/components/games/CardFooter";
 
 const SORTS = ["Popular", "New First", "A → Z", "Z → A"] as const;
 
@@ -12,28 +14,40 @@ const SORTS = ["Popular", "New First", "A → Z", "Z → A"] as const;
 
 export default function GamesPage() {
   const { user, openAuth } = useAuth();
-  const [activeCat, setActiveCat]       = useState("All");
-  const [activeProvider, setProvider]   = useState("All Providers");
-  const [sort, setSort]                 = useState("Popular");
-  const [search, setSearch]             = useState("");
-  const [visible, setVisible]           = useState(12);
+  const router = useRouter();
+  const [activeCat,      setActiveCat]    = useState("All");
+  const [activeProvider, setProvider]     = useState("All Providers");
+  const [sort,           setSort]         = useState("Popular");
+  const [search,         setSearch]       = useState("");
+  const [visible,        setVisible]      = useState(12);
 
   const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
     let list = GAMES.filter((g) => {
       if (activeCat !== "All" && g.cat !== activeCat) return false;
       if (activeProvider !== "All Providers" && g.provider !== activeProvider) return false;
-      if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (q && !g.name.toLowerCase().includes(q) && !g.provider.toLowerCase().includes(q)) return false;
       return true;
     });
-    if (sort === "A → Z") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "Z → A") list = [...list].sort((a, b) => b.name.localeCompare(a.name));
+    if (sort === "A → Z")    list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "Z → A")    list = [...list].sort((a, b) => b.name.localeCompare(a.name));
     if (sort === "New First") list = [...list].sort((a, b) => (b.badge === "New" ? 1 : 0) - (a.badge === "New" ? 1 : 0));
     return list;
   }, [activeCat, activeProvider, sort, search]);
 
   const shown = filtered.slice(0, visible);
 
-  function onPlay() { if (!user) openAuth("register"); }
+  function reset() {
+    setSearch("");
+    setProvider("All Providers");
+    setActiveCat("All");
+    setVisible(12);
+  }
+
+  function onPlay(id: number) {
+    if (!user) { openAuth("register"); return; }
+    router.push(`/games/${id}`);
+  }
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
@@ -46,28 +60,38 @@ export default function GamesPage() {
         </p>
       </div>
 
-      {/* Provider selector */}
-      <ProviderStrip
-        active={activeProvider}
-        onSelect={(p) => { setProvider(p); setVisible(12); }}
-      />
-
       {/* Search */}
-      <div className="relative mb-6">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base">🔍</span>
+      <div className="relative mb-4">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">🔍</span>
         <input
           type="text"
-          placeholder={activeProvider === "All Providers"
-            ? "Search games by name…"
-            : `Search ${activeProvider} games…`}
+          placeholder="Search games or providers…"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setVisible(12); }}
-          className="w-full h-11 pl-10 pr-4 rounded-2xl text-sm outline-none"
+          className="w-full h-11 pl-10 pr-10 rounded-2xl text-sm outline-none"
           style={{
             background: "var(--casino-surface-2)",
             border: "1px solid var(--casino-border-bright)",
             color: "var(--casino-text)",
           }}
+        />
+        {search && (
+          <button
+            onClick={() => { setSearch(""); setVisible(12); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all hover:bg-white/10"
+            style={{ color: "var(--casino-text-muted)" }}
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* Provider pills */}
+      <div className="mb-6">
+        <ProviderPills
+          active={activeProvider}
+          onSelect={(p) => { setProvider(p); setVisible(12); }}
         />
       </div>
 
@@ -84,11 +108,11 @@ export default function GamesPage() {
                 <button
                   key={cat}
                   onClick={() => { setActiveCat(cat); setVisible(12); }}
-                  className="shrink-0 h-8 px-3 lg:px-3 lg:w-full lg:text-left rounded-xl text-xs font-medium transition-all"
+                  className="shrink-0 h-8 px-3 lg:w-full lg:text-left rounded-xl text-xs font-medium transition-all"
                   style={{
                     background: activeCat === cat ? "var(--casino-purple)" : "var(--casino-surface-2)",
-                    color: activeCat === cat ? "white" : "var(--casino-text-muted)",
-                    border: `1px solid ${activeCat === cat ? "var(--casino-purple)" : "var(--casino-border)"}`,
+                    color:      activeCat === cat ? "white"                : "var(--casino-text-muted)",
+                    border:     `1px solid ${activeCat === cat ? "var(--casino-purple)" : "var(--casino-border)"}`,
                   }}
                 >
                   {cat}
@@ -110,8 +134,8 @@ export default function GamesPage() {
                   className="h-8 px-3 rounded-xl text-xs font-medium text-left transition-all"
                   style={{
                     background: sort === s ? "var(--casino-purple-soft)" : "transparent",
-                    color: sort === s ? "var(--casino-purple-light)" : "var(--casino-text-muted)",
-                    border: `1px solid ${sort === s ? "var(--casino-purple-bright)" : "transparent"}`,
+                    color:      sort === s ? "var(--casino-purple-light)" : "var(--casino-text-muted)",
+                    border:     `1px solid ${sort === s ? "var(--casino-purple-bright)" : "transparent"}`,
                   }}
                 >
                   {s}
@@ -125,9 +149,20 @@ export default function GamesPage() {
         <div className="flex-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs" style={{ color: "var(--casino-text-muted)" }}>
-              Showing <strong style={{ color: "var(--casino-text)" }}>{Math.min(visible, filtered.length)}</strong> of{" "}
+              Showing{" "}
+              <strong style={{ color: "var(--casino-text)" }}>{Math.min(visible, filtered.length)}</strong>
+              {" "}of{" "}
               <strong style={{ color: "var(--casino-text)" }}>{filtered.length}</strong> games
             </p>
+            {(search || activeProvider !== "All Providers" || activeCat !== "All") && (
+              <button
+                onClick={reset}
+                className="text-xs font-semibold hover:underline"
+                style={{ color: "var(--casino-text-muted)" }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           {filtered.length === 0 ? (
@@ -138,8 +173,10 @@ export default function GamesPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {shown.map((game) => <GameCard key={game.id} game={game} onClick={onPlay} showProvider />)}
+              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(max(120px, calc((100% - 60px) / 7)), 1fr))" }}>
+                {shown.map((game) => (
+                  <GameCard key={game.id} game={game} onClick={() => onPlay(game.id)} footer={<CardFooter id={game.id} />} />
+                ))}
               </div>
 
               {visible < filtered.length && (
@@ -164,4 +201,3 @@ export default function GamesPage() {
     </div>
   );
 }
-

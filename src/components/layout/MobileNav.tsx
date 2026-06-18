@@ -6,14 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useBrand } from "@/context/BrandContext";
 
 const GUEST_ITEMS = [
-  { icon: "🏠", label: "Lobby",    href: "/" },
+  { icon: "🏠", label: "Casino",    href: "/" },
   { icon: "🎰", label: "Games",    href: "/games" },
   { icon: "🎁", label: "Promos",   href: "/promotions" },
   { icon: "👑", label: "VIP",      href: "/vip" },
 ];
 
 const AUTH_ITEMS = [
-  { icon: "🏠", label: "Lobby",     href: "/" },
+  { icon: "🏠", label: "Casino",     href: "/" },
   { icon: "🎰", label: "Games",     href: "/games" },
   { icon: "🎁", label: "Promos",    href: "/promotions" },
   { icon: "📊", label: "Dashboard", href: "/dashboard" },
@@ -33,7 +33,7 @@ export default function MobileNav() {
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch"
       style={{
-        background: "rgba(15,15,30,.95)",
+        background: "rgba(19,35,45,.96)",
         backdropFilter: "blur(20px)",
         borderTop: "1px solid var(--casino-border-bright)",
         paddingBottom: "env(safe-area-inset-bottom)",

@@ -215,7 +215,7 @@ function RegisterForm({ onDone }: { onDone: () => void }) {
       <div
         className="flex items-center gap-3 p-3 rounded-xl"
         style={{
-          background: "linear-gradient(135deg,var(--casino-gold-soft),var(--casino-purple-soft))",
+          background: "var(--casino-gold-soft)",
           border: "1px solid var(--casino-gold-bright)",
         }}
       >
@@ -254,7 +254,7 @@ function RegisterForm({ onDone }: { onDone: () => void }) {
 
       {apiError && <ErrorBanner>{apiError}</ErrorBanner>}
 
-      <PrimaryButton loading={loading} gold>Create Free Account</PrimaryButton>
+      <PrimaryButton loading={loading} loadingLabel="Creating Account…">Create Free Account</PrimaryButton>
     </form>
   );
 }
@@ -276,21 +276,17 @@ function ErrorBanner({ children }: { children: React.ReactNode }) {
   );
 }
 
-function PrimaryButton({ children, loading, gold }: { children: React.ReactNode; loading: boolean; gold?: boolean }) {
+function PrimaryButton({ children, loading, loadingLabel = "Loading…" }: { children: React.ReactNode; loading: boolean; loadingLabel?: string }) {
   return (
     <button
       type="submit"
       disabled={loading}
       className="w-full h-11 rounded-full font-semibold text-sm text-white transition-all hover:scale-[1.02] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
-      style={{
-        background: gold
-          ? "linear-gradient(135deg,var(--casino-purple),var(--casino-gold))"
-          : "linear-gradient(135deg,var(--casino-purple),#4f46e5)",
-      }}
+      style={{ background: "var(--casino-purple)" }}
     >
       {loading ? (
         <span className="flex items-center justify-center gap-2">
-          <Spinner /> {gold ? "Creating Account…" : "Signing In…"}
+          <Spinner /> {loadingLabel}
         </span>
       ) : children}
     </button>
@@ -335,7 +331,7 @@ export default function AuthModal() {
         {/* Top glow line */}
         <div
           className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: "linear-gradient(90deg,transparent,var(--casino-purple),transparent)" }}
+          style={{ background: "var(--casino-purple-bright)" }}
         />
 
         {/* Header */}

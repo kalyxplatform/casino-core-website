@@ -35,20 +35,6 @@ export default function AppHeader() {
             {brand.name}
           </span>
         </Link>
-        {/* Search bar — desktop guest view */}
-        {!user && (
-          <div
-            className="hidden md:flex items-center gap-2.5 h-9 px-3 rounded-xl max-w-xs text-sm cursor-pointer transition-all hover:bg-white/5"
-            style={{
-              background: "var(--casino-surface-2)",
-              border: "1px solid var(--casino-border-bright)",
-              color: "var(--casino-text-muted)",
-            }}
-          >
-            <SearchIcon />
-            <span>Search games…</span>
-          </div>
-        )}
       </div>
 
       {/* ── Center: coin toggle + wallet (authenticated only) ── */}
@@ -116,21 +102,7 @@ export default function AppHeader() {
             + Wallet
           </button>
         </div>
-      ) : (
-        /* Guest center: search on mobile */
-        <div className="flex md:hidden items-center justify-center">
-          <div
-            className="flex items-center gap-2 h-9 px-3 rounded-xl text-sm cursor-pointer transition-all hover:bg-white/5"
-            style={{
-              background: "var(--casino-surface-2)",
-              border: "1px solid var(--casino-border-bright)",
-              color: "var(--casino-text-muted)",
-            }}
-          >
-            <SearchIcon />
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* ── Right: icon tray + auth buttons ── */}
       <div className="flex items-center gap-1.5 justify-end">

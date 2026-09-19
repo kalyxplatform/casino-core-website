@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# casino-core-website
 
-## Getting Started
+Player-facing frontend for the Casino Core platform. Next.js 16 (App Router), React 19,
+Tailwind v4, TypeScript.
 
-First, run the development server:
+A small, real player area against `casino-core-backend`'s `webapi`:
+
+- register, sign in, sign out
+- profile and multi-currency balance
+- buy sweepstake coin packages through the sandbox payment provider
+
+## Running it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+It talks to the development API at `https://core-webapi-dev.systems.kalyxplatform.com` by
+default, so there is nothing to configure. Point it elsewhere with `WEBAPI_BASE_URL` — note
+that the host also selects the **brand**, because the backend resolves tenancy from the
+request's `Host` header.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm build
+pnpm lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture in one paragraph
 
-## Learn More
+The browser never calls the API. `webapi`'s CORS allowlist is the set of brand hostnames, so a
+cross-origin request from this site gets no CORS headers at all. Everything goes through Server
+Components and Server Actions; `src/lib/webapi.ts` is the only module that reaches the API and
+it is `server-only`. The session token lives in an httpOnly cookie, never `localStorage`.
 
-To learn more about Next.js, take a look at the following resources:
+Business outcomes arrive as `body.code` on an HTTP 200 — a wrong password is a 200. Branch on
+the code, never the status.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+See [`CLAUDE.md`](./CLAUDE.md) for the contracts, the gotchas, and the state of the development
+environment.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Hosted on Vercel: <https://casino-core-website.vercel.app/>. A push to `master` builds and
+promotes via `.github/workflows/vercel-promote.yaml`.

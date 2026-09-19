@@ -1,54 +1,15 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
-import { BrandProvider } from "@/context/BrandContext";
-import AppSidebar from "@/components/layout/AppSidebar";
-import AppHeader from "@/components/layout/AppHeader";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
-import AuthModal from "@/components/auth/AuthModal";
-import GetCoinsModal from "@/components/crypto/GetCoinsModal";
-import ThemeEditor from "@/components/admin/ThemeEditor";
-import { getActiveBrand, brandCssVars } from "@/lib/brand-ssr";
-
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-
-const activeBrand = getActiveBrand();
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: activeBrand.meta.title,
-  description: activeBrand.meta.description,
+  title: 'Casino Core — Player Area',
+  description: 'Test harness for casino-core-backend: registration, sign in, profile and balance.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <head>
-        {/* Paint with the active brand's colors on first render — no FOUB. */}
-        <style id="brand-vars" dangerouslySetInnerHTML={{ __html: brandCssVars(activeBrand.colors) }} />
-      </head>
-      <body className="min-h-full flex flex-col">
-        <BrandProvider>
-          <AuthProvider>
-            <div className="flex flex-1 min-h-full">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col min-w-0">
-                <AppHeader />
-                <main className="flex-1 pb-16 md:pb-0 w-full px-[3vw] flex flex-col items-center" style={{ background: "var(--casino-surface)" }}>
-                  <div className="w-full max-w-[1200px]">{children}</div>
-                </main>
-                <Footer />
-              </div>
-            </div>
-            <MobileNav />
-            <AuthModal />
-            <GetCoinsModal />
-            <ThemeEditor />
-          </AuthProvider>
-        </BrandProvider>
-      </body>
+    <html lang="en">
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

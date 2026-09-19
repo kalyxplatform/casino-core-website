@@ -1,74 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --casino-bg:        #0d1b22;
-  --casino-surface:   #13232d;
-  --casino-surface-2: #1a2e39;
-  --casino-surface-3: #203743;
-  --casino-border:       rgba(131,163,182,0.12);
-  --casino-border-bright: rgba(131,163,182,0.24);
-
-  --casino-purple:        #1475e1;
-  --casino-purple-mid:    #0f66d0;
-  --casino-purple-light:  #64b2fa;
-  --casino-purple-soft:   rgba(20,117,225,0.10);
-  --casino-purple-bright: rgba(20,117,225,0.24);
-  --casino-purple-glow:   rgba(20,117,225,0.18);
-
-  --casino-gold:        #ffa91f;
-  --casino-gold-light:  #ffc366;
-  --casino-gold-soft:   rgba(255,169,31,0.10);
-  --casino-gold-bright: rgba(255,169,31,0.28);
-  --casino-gold-glow:   rgba(255,169,31,0.20);
-
-  --casino-text:       #f7fafc;
-  --casino-text-muted: #9fbed0;
-
-  --casino-success: #03e625;
-  --casino-error:   #ff8391;
-
-  --casino-gc: #ffa91f;
-  --casino-sc: #1cc1ca;
+/*
+ * A deliberately small token set. This is a test harness for the player area,
+ * not the white-label theming system the mock had — brand colours come back
+ * when brand configuration is actually served by the API.
+ */
+@theme {
+  --color-canvas: #0b0f17;
+  --color-surface: #121826;
+  --color-surface-raised: #1a2234;
+  --color-edge: #253046;
+  --color-ink: #e8edf7;
+  --color-ink-muted: #8a97ae;
+  --color-accent: #4ade80;
+  --color-accent-ink: #052e16;
+  --color-danger: #f87171;
 }
 
-@theme inline {
-  --color-background: var(--casino-bg);
-  --color-foreground: var(--casino-text);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--casino-bg);
-  color: var(--casino-text);
-  font-family: var(--font-sans), Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
 }
 
-::-webkit-scrollbar       { width: 5px; }
-::-webkit-scrollbar-track { background: var(--casino-surface); }
-::-webkit-scrollbar-thumb { background: var(--casino-surface-3); border-radius: 4px; }
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* The one interactive affordance used everywhere; worth not repeating. */
+@utility field {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-edge);
+  background-color: var(--color-canvas);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  outline: none;
 }
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
+.field:focus {
+  border-color: var(--color-accent);
 }
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 12px var(--casino-gold-glow); }
-  50%       { box-shadow: 0 0 28px var(--casino-gold-glow), 0 0 48px var(--casino-gold-glow); }
+.field::placeholder {
+  color: var(--color-ink-muted);
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.animate-fade-in  { animation: fade-in  0.25s ease both; }
-.animate-scale-in { animation: scale-in 0.2s  ease both; }
-.animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
-.animate-spin { animation: spin 0.8s linear infinite; }
-
-.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-.hide-scrollbar::-webkit-scrollbar { display: none; }

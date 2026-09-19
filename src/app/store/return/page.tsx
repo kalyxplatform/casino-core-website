@@ -45,20 +45,40 @@ export default async function StoreReturnPage(props: PageProps<'/store/return'>)
   }
 
   const found = order?.code === ResponderCodes.SUCCESS ? order.data : undefined;
-  const outcome = found ? OUTCOMES[found.Status] : undefined;
+
+  /**
+   * Abandoning the payment leaves the order `pending` — the provider's cancel tells the
+   * platform nothing, so nothing transitions (only a notification or the reconcile tick
+   * does). "Cancelled" and "pending" are therefore the SAME state on the wire, and the
+   * only thing that tells them apart is this flag on the return address.
+   *
+   * Without it the page said "You cancelled the payment" and "Your payment is being
+   * confirmed" at once, and sat there polling for a payment nobody made.
+   */
+  const wasCancelled = cancelled === '1';
+  const awaitingOutcome = found?.Status === 'pending' && !wasCancelled;
+  const outcome =
+    found && !(wasCancelled && found.Status === 'pending')
+      ? OUTCOMES[found.Status]
+      : undefined;
 
   return (
     <AppShell player={session.player} current="store">
       <h1 className="text-xl font-semibold tracking-tight">Purchase</h1>
 
       <div className="mt-4 space-y-4 rounded-xl border border-edge bg-surface p-5">
-        {cancelled === '1' && <Alert tone="error">You cancelled the payment.</Alert>}
+        {wasCancelled && (
+          <Alert tone="error">
+            You cancelled the payment. Nothing was charged — you can start again from the
+            store.
+          </Alert>
+        )}
 
         {!found && <Alert tone="error">That order could not be found.</Alert>}
 
         {found && outcome && <Alert tone={outcome.tone}>{outcome.message}</Alert>}
 
-        {found?.Status === 'pending' && <OrderPoller reference={found.Reference} />}
+        {awaitingOutcome && found && <OrderPoller reference={found.Reference} />}
 
         {found && (
           <>

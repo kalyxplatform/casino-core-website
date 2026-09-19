@@ -1,42 +1,55 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { checkoutAction } from '@/actions/store';
 import { emptyCheckout } from '@/lib/checkout-state';
 import type { StorePackage } from '@/lib/webapi';
 import { currencyLabel, formatAmount, formatBalance } from '@/lib/money';
 import { SubmitButton } from '@/components/SubmitButton';
 import { Alert } from '@/components/Alert';
-import { OrderWatcher } from './OrderWatcher';
 
 /**
- * The catalogue and the purchase it starts.
+ * The catalogue, and the purchase it starts.
  *
- * ONE `useActionState` shared by every card, but a `<form>` PER card: the
- * dispatch is just an action, so several forms can drive the same state, and
- * each card still gets its own `useFormStatus` so only the button that was
- * pressed shows as pending. A single form around the grid would post every
- * package's hidden input at once.
+ * ONE `useActionState` shared by every card, but a `<form>` PER card: the dispatch is just
+ * an action, so several forms can drive the same state, and each card still gets its own
+ * `useFormStatus` so only the button that was pressed shows as pending. A single form
+ * around the grid would post every package's hidden input at once.
  *
- * Sharing the state is also the honest model of the backend: a player has at
- * most one open order — `store_order.OpenKey` is UNIQUE while pending — so a
- * second package while one is in flight is refused with `checkout-in-progress`.
+ * Sharing the state is also the honest model of the backend: a player has at most one open
+ * order — `store_order.OpenKey` is UNIQUE while pending — so a second package while one is
+ * in flight is refused with `checkout-in-progress`.
+ *
+ * ## Why this navigates the whole page away
+ *
+ * The provider's page is not ours and must not be framed. We send the browser to it
+ * full-page and it sends the player back to `/store/return?ref=…` on this site, built by
+ * the backend from the brand's `WebsiteUrl`. So the purchase is an ordinary round trip
+ * and there is nothing to watch from here — the return page reports the outcome.
  */
 export function StoreFront({ packages, failed }: { packages: StorePackage[]; failed: boolean }) {
   const [checkout, startCheckout] = useActionState(checkoutAction, emptyCheckout);
-  // Which order the player has finished looking at. Keyed by reference rather
-  // than a boolean so that starting a SECOND purchase shows its watcher instead
-  // of staying dismissed.
-  const [dismissed, setDismissed] = useState<string | null>(null);
 
-  if (checkout.redirectUrl && checkout.reference && checkout.reference !== dismissed) {
-    const { reference, redirectUrl } = checkout;
+  // A full-page navigation, not `router.push`: the target is a different origin.
+  useEffect(() => {
+    if (checkout.redirectUrl) window.location.href = checkout.redirectUrl;
+  }, [checkout.redirectUrl]);
+
+  if (checkout.redirectUrl) {
     return (
-      <OrderWatcher
-        reference={reference}
-        paymentUrl={redirectUrl}
-        onDismiss={() => setDismissed(reference)}
-      />
+      <div className="mt-5 space-y-3 rounded-xl border border-edge bg-surface p-5">
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
+          <span className="inline-block size-2 animate-pulse rounded-full bg-accent" />
+          Taking you to the payment page…
+        </p>
+        {/* If the browser blocked the navigation, the player is not stuck. */}
+        <a
+          href={checkout.redirectUrl}
+          className="inline-flex w-full items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:brightness-110"
+        >
+          Continue to payment
+        </a>
+      </div>
     );
   }
 
@@ -85,9 +98,9 @@ export function StoreFront({ packages, failed }: { packages: StorePackage[]; fai
             </ul>
 
             {/*
-              The ENTIRE body of POST /store/checkout is `{ packageId }`. The
-              price, the currency and the player come from the order the backend
-              mints; a form that posted a price would be refused outright.
+              The ENTIRE body of POST /store/checkout is `{ packageId }`. The price, the
+              currency and the player come from the order the backend mints; a form that
+              posted a price would be refused outright.
             */}
             <input type="hidden" name="packageId" value={offer.Id} />
 

@@ -29,7 +29,12 @@ headers at all — never reflected, never `*`. Verified: an `OPTIONS` preflight 
 
 So this app is a **BFF**. Browser → Server Actions / Server Components → `webapi`.
 `src/lib/webapi.ts` is the only module that talks to the API, and it is `import 'server-only'`.
-There is no client-side `fetch` to the API anywhere, and adding one will not work.
+There is no client-side `fetch` to the API anywhere.
+
+Since 2026-09-19 a second brand row carries `Hostname = casino-core-website.vercel.app`
+purely so that this origin passes CORS, so a browser-side call would now be *allowed*. The
+BFF stays anyway: it is what keeps the session token in an httpOnly cookie, out of reach of
+any script on the page.
 
 This is also why the session token lives in an **httpOnly cookie** (`src/lib/session.ts`)
 rather than `localStorage` — nothing in the browser can read it.
@@ -61,25 +66,35 @@ tests. Read them before changing a request shape.
 | Checkout body | Exactly `{ packageId }`. A price, a currency or a player in the body is a `400` |
 | Checkout errors | Slugs (`checkout-in-progress`, `too-many-attempts`, `not-found`), mapped to sentences in `src/actions/store.ts` |
 
-## The purchase flow, and its one rough edge
+## The purchase flow
 
-Pressing "pay" on the sandbox page does **not** credit anything. It makes the provider send a
-signed server-to-server notification to `POST /payments/notifications/sandbox`, and only that
-notification credits. So the authoritative thing to watch is the **order**, not the browser tab.
+Pressing "pay" on the sandbox page does **not** credit anything. It makes the provider send
+a signed server-to-server notification to `POST /payments/notifications/sandbox`, and only
+that notification credits. The redirect back and the notification **race**, so the return
+page reads the ORDER and never infers success from having been redirected to.
 
-`CheckoutService` builds the provider's return address itself, as
-`https://<brand hostname>/store/return?ref=…`, from the brand's **stored** hostname. In the
-development environment that hostname is `core-webapi-dev.systems.kalyxplatform.com` — the
-API's own — so **the sandbox redirects the player to the API, not to this site**, where they
-get a 404.
+The flow is an ordinary full-page round trip:
 
-The workaround: the payment page opens in a **second tab**, and `OrderWatcher` polls
-`GET /store/orders/:reference` from the original tab, then `router.refresh()` re-reads the
-balance. `src/app/store/return/page.tsx` implements the return address properly and is what
-would be used if the brand hostname ever pointed here.
+```
+/store  --(POST /store/checkout)-->  RedirectUrl (sandbox page, on the API host)
+        --(player pays)-->           /store/return?ref=…  (back here)
+```
 
-Fixing this properly is a backend/infra change (a brand hostname that resolves to this site,
-or a `/store/return` redirect on the API), not a frontend one.
+`CheckoutService` builds that return address from **`brand.WebsiteUrl`**, falling back to
+`https://<brand.Hostname>` when it is unset. That column exists because the two are not the
+same host here: `Hostname` is the tenancy key and must resolve to the **API**, while the
+return address must resolve to the **site**. Before it existed, every purchase dumped the
+player on the API's 404.
+
+Development values (brand `Kalyx Dev`, Id 1):
+
+| Column | Value | Job |
+|---|---|---|
+| `Hostname` | `core-webapi-dev.systems.kalyxplatform.com` | tenancy — matched against the API request's `Host` |
+| `WebsiteUrl` | `https://casino-core-website.vercel.app` | where a payment provider returns the player |
+
+If the order is still `pending` when the player lands, `OrderPoller` waits for the
+notification rather than guessing.
 
 ## Layout
 
@@ -94,7 +109,9 @@ src/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
   app/
-    login/ register/ account/ store/ store/return/
+    login/ register/ account/
+    store/            # catalogue; starts checkout and navigates to the provider
+    store/return/     # where the provider returns the player; polls while pending
   components/          # AppShell, BalancePanel, SubmitButton, Alert
 ```
 
@@ -142,7 +159,11 @@ Seeded by hand on 2026-09-19 against the `development-531507` Cloud SQL instance
 IAP tunnel on `cloudsql-jumpbox`:
 
 - Brand `Kalyx Dev` (Id 1), hostname `core-webapi-dev.systems.kalyxplatform.com`, active —
-  was already present
+  was already present; **`WebsiteUrl` set to `https://casino-core-website.vercel.app`**
+- Brand `Kalyx Dev Web` (Id 2), hostname `casino-core-website.vercel.app`, active —
+  **added**, and it exists ONLY so this site's origin passes the API's CORS allowlist.
+  Nothing ever resolves to it: no request reaches the API on that host. It has no players,
+  terms or packages, and it is not a tenant in any meaningful sense
 - Currencies `GC.` (1), `SC.` (2) social, `USD` (5) fiat — already present
 - Store packages `starter-10` ($9.99), `popular-25` ($24.99), `mega-50` ($49.99), all active,
   each with a purchased `GC.` line and a bonus `SC.` line — **added**

@@ -6,25 +6,25 @@ import { ResponderCodes } from '@/lib/webapi';
 import { AppShell } from '@/components/AppShell';
 import { currencyLabel, formatAmount, formatBalance } from '@/lib/money';
 import { Alert } from '@/components/Alert';
+import { OrderPoller } from './OrderPoller';
 
 /**
  * Where a payment provider sends the player back to.
  *
  * `CheckoutService` builds this address itself, as
- * `https://<brand hostname>/store/return?ref=<reference>` — from the brand's
- * STORED hostname, never the `Host` a request arrived on. In the development
- * environment that hostname is the API's own, so the sandbox's redirect lands
- * on the API and not here; the store page watches the order instead. This page
- * is still the right shape for that address, and it is what a player reaches by
- * following the link with this site's host in front of it.
+ * `https://<brand WebsiteUrl>/store/return?ref=<reference>` — from the brand's own
+ * stored columns, never the `Host` a request arrived on. `WebsiteUrl` is the brand's
+ * player-facing origin; it exists precisely because the site and the api are not the
+ * same host here, and without it this address pointed at the api.
  *
- * Landing here proves nothing about the payment: the provider's redirect is not
- * what credits an order — its signed server-to-server notification is. So this
- * reads the order and reports what the platform actually recorded.
+ * Landing here proves NOTHING about the payment. The provider's redirect is not what
+ * credits an order — its signed server-to-server notification is, and the two race. So
+ * this reads the ORDER and reports what the platform actually recorded; when that has
+ * not landed yet, `OrderPoller` waits for it instead of guessing from the redirect.
  */
 const OUTCOMES: Record<string, { tone: 'error' | 'info'; message: string }> = {
   credited: { tone: 'info', message: 'Payment received. Your coins have been added.' },
-  pending: { tone: 'error', message: 'This payment has not completed yet.' },
+  pending: { tone: 'info', message: 'Your payment is being confirmed.' },
   failed: { tone: 'error', message: 'The payment failed. Nothing was charged.' },
   expired: { tone: 'error', message: 'This order expired before it was paid.' },
   refunded: { tone: 'error', message: 'This order was refunded.' },
@@ -57,6 +57,8 @@ export default async function StoreReturnPage(props: PageProps<'/store/return'>)
         {!found && <Alert tone="error">That order could not be found.</Alert>}
 
         {found && outcome && <Alert tone={outcome.tone}>{outcome.message}</Alert>}
+
+        {found?.Status === 'pending' && <OrderPoller reference={found.Reference} />}
 
         {found && (
           <>

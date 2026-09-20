@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { logoutAction } from '@/actions/auth';
 import type { PlayerProfile } from '@/lib/webapi';
 
+type Tab = 'account' | 'games' | 'store';
+
 /** The chrome every signed-in page sits in: who you are, where you can go, and out. */
 export function AppShell({
   player,
@@ -9,10 +11,10 @@ export function AppShell({
   children,
 }: {
   player: PlayerProfile;
-  current: 'account' | 'store';
+  current: Tab;
   children: React.ReactNode;
 }) {
-  const tab = (href: string, key: 'account' | 'store', label: string) => (
+  const tab = (href: string, key: Tab, label: string) => (
     <Link
       href={href}
       className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
@@ -31,6 +33,7 @@ export function AppShell({
 
           <nav className="flex items-center gap-1">
             {tab('/account', 'account', 'Profile')}
+            {tab('/games', 'games', 'Games')}
             {tab('/store', 'store', 'Get coins')}
           </nav>
 

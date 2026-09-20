@@ -1,0 +1,68 @@
+import { redirect } from 'next/navigation';
+import { clearSession, requireSession } from '@/lib/session';
+import * as webapi from '@/lib/webapi';
+import { ResponderCodes } from '@/lib/webapi';
+import { AppShell } from '@/components/AppShell';
+import { GameLobby } from './GameLobby';
+
+/**
+ * The lobby: the games a signed-in player may open, and the balances they play with.
+ *
+ * `GET /games` is NOT public — it is behind the same JWT-plus-live-`web_session`
+ * guard every other player route is, and the catalogue it answers is platform-wide
+ * in this feature rather than per brand. An empty list is a legitimate success.
+ *
+ * Nothing is launched here. This page only renders the choice; the address that
+ * opens a game is minted one click at a time by `launchAction`, because it carries
+ * a single-use token and a page that minted one per render would burn a token for
+ * every prefetch and every refresh.
+ */
+export default async function GamesPage() {
+  const session = await requireSession();
+
+  const [games, balance, currencies] = await Promise.all([
+    webapi.listGames(session.token),
+    webapi.getBalance(session.token),
+    webapi.listCurrencies(),
+  ]);
+
+  if (games.code === ResponderCodes.FORBIDDEN || balance.code === ResponderCodes.FORBIDDEN) {
+    await clearSession();
+    redirect('/login');
+  }
+
+  const accounts =
+    balance.code === ResponderCodes.SUCCESS && balance.data ? balance.data : [];
+
+  /**
+   * Only a SOCIAL currency can be played in, and the balance response says which
+   * currencies a player holds without saying what kind they are — so the kind comes
+   * from `GET /currency`.
+   *
+   * When that read fails the picker offers every held currency instead of nothing:
+   * the launch route decides this question anyway, and refusing to show a picker
+   * because a cached lookup was unavailable would break a lobby that works.
+   */
+  const social =
+    currencies.code === ResponderCodes.SUCCESS && currencies.data
+      ? new Set(
+          currencies.data
+            .filter((currency) => currency.Type === 'social' && currency.Status === 'active')
+            .map((currency) => currency.Code),
+        )
+      : null;
+
+  const playable = social
+    ? accounts.filter((account) => social.has(account.Currency.Code))
+    : accounts;
+
+  return (
+    <AppShell player={session.player} current="games">
+      <GameLobby
+        games={games.code === ResponderCodes.SUCCESS && games.data ? games.data.games : []}
+        failed={games.code !== ResponderCodes.SUCCESS}
+        accounts={playable}
+      />
+    </AppShell>
+  );
+}

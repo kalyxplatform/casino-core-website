@@ -7,16 +7,22 @@ React 19, Tailwind v4, TypeScript, pnpm. Deployed on Vercel at
 ## What this is right now
 
 A **deliberately small, real** player area, rebuilt from scratch on 2026-09-19 after the
-previous mock site was deleted. Three things work, end to end, against the live
+previous mock site was deleted. Four things work, end to end, against the live
 development API — no mocks, no fabricated data, no static fixtures:
 
 1. **Register / sign in / sign out** — `POST /registration`, `POST /auth/login`, `POST /auth/logout`
 2. **Profile and balance** — the login response's `User` block, plus `GET /account/balance`
 3. **Buy sweepstake coins** — `GET /store/packages` → `POST /store/checkout` → the sandbox
    payment page → `GET /store/orders/:reference`
+4. **Play a game** — `GET /games` → `POST /games/launch` → Revolver Gaming's launcher, in an
+   iframe on `/games` (backend feature 004). Both routes are on the backend's
+   `feature/004-revolver-game-provider` branch and **`GET /games` is still a hard 404 on the
+   development API**, so until that deploys the lobby renders and says the games list could
+   not be loaded. `rollout.md` puts this page last on purpose
 
-Games, VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
-invented data. Add them back only against real endpoints.
+VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
+invented data. Add them back only against real endpoints — which is how the games page came
+back: there is a real catalogue and a real launch behind it now.
 
 ## The two facts that shape the whole architecture
 
@@ -62,6 +68,10 @@ tests. Read them before changing a request shape.
 | Balances | **Strings**, `decimal(65,30)`. Never `parseFloat`. See `src/lib/money.ts` |
 | Currency codes | `GC.` and `SC.` — with a trailing dot |
 | Checkout body | Exactly `{ packageId }`. A price, a currency or a player in the body is a `400` |
+| Launch body | Exactly `{ gameCode, currencyCode, variant? }`. `variant` is `desktop` or `mobile` |
+| Launch refusals | `launch-not-available` is ONE answer for unknown game, disabled game, disabled **game provider**, non-social currency and no account in it — never say which |
+| `gameProvider` | A game studio. Never a bare `provider` — in this platform that also means a PAYMENT provider, and the two are unrelated |
+| Playable currencies | Social only. The balance response does not carry a currency's type, so `GET /currency` supplies it |
 | Checkout errors | Slugs (`checkout-in-progress`, `too-many-attempts`, `not-found`), mapped to sentences in `src/actions/store.ts` |
 
 ## The purchase flow
@@ -105,15 +115,43 @@ src/
     session.ts         # httpOnly session cookie, requireSession()
     money.ts           # decimal-string formatting; no arithmetic, ever
     checkout-state.ts  # shared with the action — see the 'use server' gotcha below
+    launch-state.ts    # same reason, for the game launch
   actions/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
+    games.ts           # game launch
   app/
     login/ register/ account/
     store/            # catalogue; starts checkout and navigates to the provider
     store/return/     # where the provider returns the player; polls while pending
+    games/            # lobby; launches into an iframe on the same page
   components/          # AppShell, BalancePanel, SubmitButton, Alert
 ```
+
+## Playing a game
+
+`/games` lists the catalogue and the player's social balances. Pressing **Play** runs
+`launchAction`, which calls `POST /games/launch` and gets back a Revolver launcher address;
+`GameFrame` puts that address straight into an `<iframe>` over the lobby.
+
+The address is the whole security story:
+
+- **It carries a live single-use game session token** for that player's balance. It is minted
+  one click at a time, held in React state, and never written into this site's own URL — a
+  query string is the one part of a request that survives into proxy logs and `Referer`
+  headers. Never log it, never cache it.
+- That is also why the lobby does not link to a `/games/[code]` page that launches on render:
+  `<Link>` prefetches, and a prefetch would mint a token for a game nobody opened.
+- The "Open in a new tab" fallback carries `rel="noopener noreferrer"` for the same reason —
+  without it the token goes to the game host as a `Referer`.
+
+**Framing is Revolver's call, not ours.** Its game host may refuse to be embedded
+(`X-Frame-Options`, `frame-ancestors`), and an embedding page cannot tell a blocked frame from
+a blank one. The backend's spec assumes a new tab for exactly this reason, so the frame always
+offers the tab as a fallback rather than trying to detect the failure.
+
+`exit_url` on the launch address is `brand.WebsiteUrl`, so the game's own exit button
+navigates the **frame** back to this site rather than closing it. Use "Close game".
 
 ## Gotchas
 

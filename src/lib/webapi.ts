@@ -181,6 +181,39 @@ export interface StoreOrder {
   CreditedAt: string | null;
 }
 
+/**
+ * `specs/004-revolver-game-provider/contracts/games-list-success.json`.
+ *
+ * `gameProvider` is a GAME provider — a game studio or aggregator. It is never a
+ * bare `provider`: in this platform that word also means a PAYMENT provider, and
+ * the two are unrelated.
+ */
+export interface GameSummary {
+  code: string;
+  name: string;
+  gameProvider: string;
+}
+
+/**
+ * `contracts/games-launch-success.json`.
+ *
+ * `url` carries a live single-use game session token. It goes to the signed-in
+ * player's own browser and nowhere else: never logged, never cached, and never
+ * written into an address this app navigates to, because a query string is the
+ * one part of a request that ends up in proxy logs and `Referer` headers.
+ */
+export interface GameLaunch {
+  url: string;
+}
+
+/** `GET /currency` — public, and in social mode it lists only social currencies. */
+export interface CurrencyOption {
+  Id: number;
+  Code: string;
+  Type: string;
+  Status: string;
+}
+
 export interface CountryOption {
   Id: number;
   Name: string;
@@ -207,6 +240,30 @@ export const getBalance = (token: string) =>
   request<AccountBalance[]>('/account/balance', { token });
 
 export const listCountries = () => request<CountryOption[]>('/country');
+
+/**
+ * `GET /currency`. Public, but read here for ONE reason: the balance response
+ * says which currencies a player holds and not what kind they are, and only a
+ * SOCIAL currency can be played in. Intersecting the two is what keeps a fiat
+ * account off the lobby's currency picker in a brand that has one.
+ */
+export const listCurrencies = () => request<CurrencyOption[]>('/currency');
+
+/** `GET /games`. Active games of active game providers. An empty list is a success. */
+export const listGames = (token: string) =>
+  request<{ games: GameSummary[] }>('/games', { token });
+
+/**
+ * `POST /games/launch`. The body is EXACTLY `{ gameCode, currencyCode, variant? }`.
+ *
+ * The player comes from the session and the brand from the brand key, so a body
+ * that named either would be refused as an unknown property — the same rule the
+ * checkout body follows.
+ */
+export const launchGame = (
+  token: string,
+  input: { gameCode: string; currencyCode: string; variant?: 'desktop' | 'mobile' },
+) => request<GameLaunch>('/games/launch', { method: 'POST', token, body: input });
 
 export const listPackages = (token: string) =>
   request<StorePackage[]>('/store/packages', { token });

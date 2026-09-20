@@ -31,8 +31,12 @@ permissions:
   deployments: write
 
 env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  # `vars`, not `secrets`: both are repository VARIABLES (neither is secret — an org and a
+  # project id identify, they do not authorise). Read as `secrets.*` they resolved to the
+  # empty string, which left the CLI with no project to target; `vercel pull` got away with
+  # it by falling back to the linked project, but `vercel env` below cannot.
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -66,6 +70,33 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      # The brand key is this site's TENANCY credential (backend D-044): `webapi` resolves
+      # which brand we are from it, and refuses every request without it. It is a secret, so
+      # it lives in a GitHub Actions secret and is synced into the Vercel project from here
+      # — never committed. This repository is PUBLIC; a key in the tree is a key on the
+      # internet.
+      #
+      # This step exists because nobody on the team has Vercel dashboard access, but the
+      # token below already grants exactly the write access needed. Delete it once the env
+      # var is managed in Vercel directly.
+      #
+      # `process.env.BRAND_KEY` is read at RUNTIME by a server component, not inlined at
+      # build time (it is deliberately not `NEXT_PUBLIC_`), so it has to exist on the Vercel
+      # PROJECT — setting it only on this runner would not reach the deployed function.
+      # Hence: set it before `vercel pull`, so the pulled config carries it.
+      - name: Sync BRAND_KEY into the Vercel project
+        run: |
+          if [ -z "${{ secrets.BRAND_KEY }}" ]; then
+            echo "::error::BRAND_KEY secret is not set. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          # Remove first so this is idempotent AND so a rotated key actually replaces the
+          # old one; `vercel env add` does not overwrite. A first run has nothing to remove.
+          vercel env rm BRAND_KEY production --yes \
+            --token="${{ secrets.VERCEL_TOKEN }}" || true
+          printf %s "${{ secrets.BRAND_KEY }}" | vercel env add BRAND_KEY production \
+            --token="${{ secrets.VERCEL_TOKEN }}"
+
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
 
@@ -77,7 +108,7 @@ jobs:
           echo "Promoting existing deployment: ${{ inputs.deployment }}"
           vercel promote "${{ inputs.deployment }}" \
             --token="${{ secrets.VERCEL_TOKEN }}" \
-            --scope="${{ secrets.VERCEL_ORG_ID }}"
+            --scope="${{ vars.VERCEL_ORG_ID }}"
           echo "url=${{ inputs.deployment }}" >> "$GITHUB_OUTPUT"
 
       # ---- Mode 2: build + deploy a new production release -------------------

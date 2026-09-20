@@ -22,19 +22,17 @@ invented data. Add them back only against real endpoints.
 
 ### 1. The browser cannot call the API. Ever.
 
-`webapi`'s CORS allowlist **is** the set of brand hostnames
-(`apps/webapi/src/app.setup.ts`). A request from this site's origin is answered with no CORS
-headers at all — never reflected, never `*`. Verified: an `OPTIONS` preflight from
-`https://casino-core-website.vercel.app` returns 404.
+`webapi`'s CORS allowlist **is** the set of brand `WebsiteUrl` origins
+(`apps/webapi/src/app.setup.ts`), so this site's origin does pass it. An origin that is no
+brand's is answered with no CORS headers at all — never reflected, never `*`.
 
-So this app is a **BFF**. Browser → Server Actions / Server Components → `webapi`.
+This app is a **BFF** anyway. Browser → Server Actions / Server Components → `webapi`.
 `src/lib/webapi.ts` is the only module that talks to the API, and it is `import 'server-only'`.
 There is no client-side `fetch` to the API anywhere.
 
-Since 2026-09-19 a second brand row carries `Hostname = casino-core-website.vercel.app`
-purely so that this origin passes CORS, so a browser-side call would now be *allowed*. The
-BFF stays anyway: it is what keeps the session token in an httpOnly cookie, out of reach of
-any script on the page.
+That is not a style choice now: **`BRAND_KEY` is a credential**, and a browser-side call
+would have to carry it. The BFF is what keeps the brand key and the session token on the
+server, out of reach of any script on the page.
 
 This is also why the session token lives in an **httpOnly cookie** (`src/lib/session.ts`)
 rather than `localStorage` — nothing in the browser can read it.
@@ -80,18 +78,20 @@ The flow is an ordinary full-page round trip:
         --(player pays)-->           /store/return?ref=…  (back here)
 ```
 
-`CheckoutService` builds that return address from **`brand.WebsiteUrl`**, falling back to
-`https://<brand.Hostname>` when it is unset. That column exists because the two are not the
-same host here: `Hostname` is the tenancy key and must resolve to the **API**, while the
-return address must resolve to the **site**. Before it existed, every purchase dumped the
-player on the API's 404.
+`CheckoutService` builds that return address from **`brand.WebsiteUrl`**, and refuses the
+checkout when it is missing or unusable rather than sending the player somewhere that
+cannot bring them back.
 
 Development values (brand `Kalyx Dev`, Id 1):
 
 | Column | Value | Job |
 |---|---|---|
-| `Hostname` | `core-webapi-dev.systems.kalyxplatform.com` | tenancy — matched against the API request's `Host` |
-| `WebsiteUrl` | `https://casino-core-website.vercel.app` | where a payment provider returns the player |
+| `KeyHash` | sha256 of this site's `BRAND_KEY` | tenancy — matched against `X-Brand-Key` |
+| `WebsiteUrl` | `https://casino-core-website.vercel.app` | the return address, and the CORS origin |
+
+`brand.Hostname` used to be the tenancy key. It no longer is and is no longer read: it held
+the API's own address, which every brand shares, so it named us rather than the brand and —
+being UNIQUE — could only ever be held by one brand at a time.
 
 If the order is still `pending` when the player lands, `OrderPoller` waits for the
 notification rather than guessing.
@@ -134,10 +134,14 @@ src/
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `WEBAPI_BASE_URL` | `https://core-webapi-dev.systems.kalyxplatform.com` | The API, **and** the brand — the `Host` selects the tenant |
+| `BRAND_KEY` | **none — required** | Which brand this site is. Sent as `X-Brand-Key`; the API stores only its sha256 |
+| `WEBAPI_BASE_URL` | `https://core-webapi-dev.systems.kalyxplatform.com` | The API's address. It selects nothing — every brand shares it |
 
-It is deliberately **not** `NEXT_PUBLIC_`: the browser must never hold it. The default is the
-development API, so no Vercel env var is needed to run.
+Neither is `NEXT_PUBLIC_`, deliberately: the browser must never hold either, and `BRAND_KEY`
+is a credential. It is a bearer secret, so treat it like a password — never in a URL, never
+in a log, never in the repo. Rotate it by setting `brand.PreviousKeyHash` to the current
+digest and `KeyHash` to the new one, deploying the new value here, then clearing
+`PreviousKeyHash`; both keys work in between, so there is no window where requests fail.
 
 ## Commands
 
@@ -158,12 +162,11 @@ through `.github/workflows/vercel-promote.yaml` (needs `VERCEL_TOKEN`, `VERCEL_O
 Seeded by hand on 2026-09-19 against the `development-531507` Cloud SQL instance, through the
 IAP tunnel on `cloudsql-jumpbox`:
 
-- Brand `Kalyx Dev` (Id 1), hostname `core-webapi-dev.systems.kalyxplatform.com`, active —
-  was already present; **`WebsiteUrl` set to `https://casino-core-website.vercel.app`**
-- Brand `Kalyx Dev Web` (Id 2), hostname `casino-core-website.vercel.app`, active —
-  **added**, and it exists ONLY so this site's origin passes the API's CORS allowlist.
-  Nothing ever resolves to it: no request reaches the API on that host. It has no players,
-  terms or packages, and it is not a tenant in any meaningful sense
+- Brand `Kalyx Dev` (Id 1), active, **`WebsiteUrl` = `https://casino-core-website.vercel.app`**
+  and **`KeyHash` = sha256 of this site's `BRAND_KEY`**. Its old `Hostname` is no longer read
+- Brand `Kalyx Dev Web` (Id 2) was added only so this site's origin passed the API's CORS
+  allowlist, back when that allowlist read `brand.Hostname`. It reads `WebsiteUrl` now, so
+  **that row should be deleted** — it is a fake tenant with no players, terms or packages
 - Currencies `GC.` (1), `SC.` (2) social, `USD` (5) fiat — already present
 - Store packages `starter-10` ($9.99), `popular-25` ($24.99), `mega-50` ($49.99), all active,
   each with a purchased `GC.` line and a bonus `SC.` line — **added**

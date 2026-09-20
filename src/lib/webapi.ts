@@ -15,10 +15,12 @@ import 'server-only';
  *     `@HttpCode(200)` and answer `{ code, message, data? }`. A wrong password,
  *     an invalid field and an expired session are all HTTP 200. Branch on
  *     `body.code`; a client that branches on `response.status` misses every one.
- *  2. **Tenancy comes from the hostname.** The brand is resolved from the raw
- *     `Host` header this request arrives on, so the base URL is not merely an
- *     address — it selects the brand. Nothing here sends a `brandId`, and
- *     sending one would be refused as an unknown property.
+ *  2. **Tenancy comes from the BRAND KEY.** Every brand's site is served by one
+ *     shared `webapi`, so the address says nothing about which brand is calling.
+ *     `X-Brand-Key` does: a secret this server holds and the browser never sees.
+ *     Nothing here sends a `brandId`, and sending one would be refused as an
+ *     unknown property — the key is the selector, and unlike an id it cannot be
+ *     guessed by anyone who wants to act as this brand.
  */
 
 /** `ResponderCodes` as `webapi` numbers them — NOT HTTP statuses, and NOT `integrations`'. */
@@ -43,6 +45,13 @@ export interface ApiResponse<T> {
 export const webapiBaseUrl = (): string =>
   process.env.WEBAPI_BASE_URL ?? 'https://core-webapi-dev.systems.kalyxplatform.com';
 
+/**
+ * This brand's key. No default: a wrong or missing key is every request refused,
+ * and a silent fallback would make that look like a login problem instead of a
+ * configuration one.
+ */
+const brandKey = (): string | undefined => process.env.BRAND_KEY;
+
 interface RequestOptions {
   method?: 'GET' | 'POST';
   body?: unknown;
@@ -61,7 +70,19 @@ interface RequestOptions {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
   const { method = 'GET', body, token } = options;
 
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const key = brandKey();
+  if (!key) {
+    // Nothing can work without it, so say so once, plainly, on the server. The
+    // player sees the same generic message every other outage produces.
+    console.error('BRAND_KEY is not set — every API call would be refused.');
+    return { code: ResponderCodes.INTERNAL_ERROR, message: 'The service is unreachable.' };
+  }
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    // Tenancy. Server-to-server only: this value must never reach the browser.
+    'X-Brand-Key': key,
+  };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 

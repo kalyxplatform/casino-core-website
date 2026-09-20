@@ -89,9 +89,9 @@ Development values (brand `Kalyx Dev`, Id 1):
 | `KeyHash` | sha256 of this site's `BRAND_KEY` | tenancy — matched against `X-Brand-Key` |
 | `WebsiteUrl` | `https://casino-core-website.vercel.app` | the return address, and the CORS origin |
 
-`brand.Hostname` used to be the tenancy key. It no longer is and is no longer read: it held
-the API's own address, which every brand shares, so it named us rather than the brand and —
-being UNIQUE — could only ever be held by one brand at a time.
+`brand.Hostname` used to be the tenancy key. It is **gone** (dropped 2026-09-20): it held the
+API's own address, which every brand shares, so it named the platform rather than the brand
+and — being UNIQUE — could only ever be held by one brand at a time.
 
 If the order is still `pending` when the player lands, `OrderPoller` waits for the
 notification rather than guessing.
@@ -163,10 +163,10 @@ Seeded by hand on 2026-09-19 against the `development-531507` Cloud SQL instance
 IAP tunnel on `cloudsql-jumpbox`:
 
 - Brand `Kalyx Dev` (Id 1), active, **`WebsiteUrl` = `https://casino-core-website.vercel.app`**
-  and **`KeyHash` = sha256 of this site's `BRAND_KEY`**. Its old `Hostname` is no longer read
+  and **`KeyHash` = sha256 of this site's `BRAND_KEY`**. Its old `Hostname` column is gone
 - Brand `Kalyx Dev Web` (Id 2) was added only so this site's origin passed the API's CORS
-  allowlist, back when that allowlist read `brand.Hostname`. It reads `WebsiteUrl` now, so
-  **that row should be deleted** — it is a fake tenant with no players, terms or packages
+  allowlist, back when that allowlist read the hostname column. It reads `WebsiteUrl` now,
+  and **that row was deleted on 2026-09-20**
 - Currencies `GC.` (1), `SC.` (2) social, `USD` (5) fiat — already present
 - Store packages `starter-10` ($9.99), `popular-25` ($24.99), `mega-50` ($49.99), all active,
   each with a purchased `GC.` line and a bonus `SC.` line — **added**

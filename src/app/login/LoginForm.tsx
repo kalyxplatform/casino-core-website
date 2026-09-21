@@ -7,12 +7,27 @@ import { Alert } from '@/components/Alert';
 
 const initialState: FormState = { error: null };
 
-export function LoginForm({ registered }: { registered: boolean }) {
+export function LoginForm({
+  registered,
+  expired,
+}: {
+  registered: boolean;
+  /**
+   * Set by `/session/expired`, the Route Handler that cleared the cookie after the
+   * API refused it. Without saying so, a player who was mid-session is dropped on
+   * a sign-in form with no explanation — and the commonest cause is signing out on
+   * another device, which is worth knowing rather than guessing at.
+   */
+  expired: boolean;
+}) {
   const [state, formAction] = useActionState(loginAction, initialState);
 
   return (
     <form action={formAction} className="mt-8 space-y-4">
       {registered && <Alert tone="info">Your account was created. Sign in to continue.</Alert>}
+      {expired && !state.error && (
+        <Alert tone="error">Your session has ended. Please sign in again.</Alert>
+      )}
       {state.error && <Alert tone="error">{state.error}</Alert>}
 
       <div className="space-y-1.5">

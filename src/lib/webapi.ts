@@ -64,6 +64,19 @@ interface RequestOptions {
   body?: unknown;
   /** The session token, when the route is behind `JwtAuthGuard`. */
   token?: string;
+  /**
+   * Seconds this answer may be reused for, when it is REFERENCE DATA.
+   *
+   * Omitting it — which every player-scoped route does — means `no-store`. Only
+   * a route whose answer is the same for every player of this brand may set it,
+   * because Next's data cache is shared across requests and across regions: a
+   * balance or an order cached for one player would be served to the next.
+   *
+   * The cache is keyed on the request, and every request here carries this
+   * deployment's own `X-Brand-Key`, so one brand's cached reference data cannot
+   * be handed to another brand's site even if they share a region.
+   */
+  revalidate?: number;
 }
 
 /**
@@ -75,7 +88,7 @@ interface RequestOptions {
  * to know whether the API was reached.
  */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
-  const { method = 'GET', body, token } = options;
+  const { method = 'GET', body, token, revalidate } = options;
 
   const key = brandKey();
   if (!key) {
@@ -99,8 +112,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-      // Balances and order status must never be served from a cache.
-      cache: 'no-store',
+      // Balances and order status must never be served from a cache, so this is
+      // the default and a caller has to ask to opt out of it.
+      ...(revalidate === undefined ? { cache: 'no-store' as const } : { next: { revalidate } }),
     });
   } catch {
     // The message is deliberately generic: never show a raw transport error to
@@ -250,15 +264,41 @@ export const logout = (token: string) =>
 export const getBalance = (token: string) =>
   request<AccountBalance[]>('/account/balance', { token });
 
-export const listCountries = () => request<CountryOption[]>('/country');
+/**
+ * How long reference data may be reused for.
+ *
+ * Countries and currencies change at the pace of a migration, not a request, so
+ * the ceiling on this is not how fast they change — it is how long a BAD answer
+ * would persist. Next's data cache keys on the HTTP response, and these routes
+ * answer HTTP 200 whatever the envelope says, so an outage that returns
+ * `code: 500` is cached exactly like a good answer. Five minutes is the price of
+ * that: long enough to take the repeated call off every render, short enough
+ * that a lobby which wrongly believes the player has nothing playable heals by
+ * itself rather than needing a deploy.
+ *
+ * This is the same failure the `social` filter in `app/games/page.tsx` is written
+ * to survive — a cache serving an answer this app cannot use — and it is worth
+ * remembering that adding a cache here is what makes that failure last longer.
+ */
+const REFERENCE_DATA_TTL_SECONDS = 300;
+
+/** `GET /country`. The same list for every player, so it is cached. */
+export const listCountries = () =>
+  request<CountryOption[]>('/country', { revalidate: REFERENCE_DATA_TTL_SECONDS });
 
 /**
  * `GET /currency`. Public, but read here for ONE reason: the balance response
  * says which currencies a player holds and not what kind they are, and only a
  * SOCIAL currency can be played in. Intersecting the two is what keeps a fiat
  * account off the lobby's currency picker in a brand that has one.
+ *
+ * Cached for the same reason as the country list, and it buys less than it looks
+ * like it should: the lobby fetches it alongside the games and the balance in one
+ * `Promise.all`, so removing it removes a parallel call rather than a round trip.
+ * The saving is to the backend, not to the page.
  */
-export const listCurrencies = () => request<CurrencyOption[]>('/currency');
+export const listCurrencies = () =>
+  request<CurrencyOption[]>('/currency', { revalidate: REFERENCE_DATA_TTL_SECONDS });
 
 /** `GET /games`. Active games of active game providers. An empty list is a success. */
 export const listGames = (token: string) =>

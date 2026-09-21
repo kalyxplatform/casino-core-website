@@ -1,31 +1,27 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { requireSession, clearSession } from '@/lib/session';
+import { redirectToExpiredSession, requireSession } from '@/lib/session';
 import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { AppShell } from '@/components/AppShell';
 import { BalancePanel } from '@/components/BalancePanel';
+import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
 
 /**
  * Profile and balance.
  *
- * The profile is the `user` block the login response carried, held in the
- * session cookie: `GET /user` is still a stub that answers a bare string, so
- * there is nothing else to read it from yet.
+ * The profile is the `user` block the login response carried, held in the session
+ * cookie: `GET /user` is still a stub that answers a bare string, so there is
+ * nothing else to read it from yet. That means the profile costs no network at all,
+ * and it is why it renders outside the `<Suspense>` below — it is ready the moment
+ * the request reaches the function, and waiting for a balance to show it would be
+ * waiting for nothing.
  *
- * The balance is fetched on every render and never cached. A `403` here is the
- * backend telling us the session is gone — a JWT that has not expired is still
- * refused once its `web_session` row is — so the cookie is dropped and the
- * player is sent to sign in again, rather than shown a stale page.
+ * The balance IS a network call, to `us-central1` from a function in `iad1`, so it
+ * streams: the shell and the profile flush first and the panel arrives after.
  */
 export default async function AccountPage() {
   const session = await requireSession();
-  const balance = await webapi.getBalance(session.token);
-
-  if (balance.code === ResponderCodes.FORBIDDEN) {
-    await clearSession();
-    redirect('/login');
-  }
 
   const rows = [
     ['Player id', String(session.player.user_id)],
@@ -56,12 +52,42 @@ export default async function AccountPage() {
       </div>
 
       <div className="mt-4">
-        {balance.code === ResponderCodes.SUCCESS && balance.data ? (
-          <BalancePanel balances={balance.data} />
-        ) : (
-          <p className="text-sm text-danger">Your balance could not be loaded right now.</p>
-        )}
+        <Suspense fallback={<BalanceFallback />}>
+          <Balance token={session.token} />
+        </Suspense>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * The balance, fetched on every render and never cached.
+ *
+ * A `403` here is the backend saying the session is gone — a JWT that has not
+ * expired is still refused once its `web_session` row is, so the two are checked
+ * independently and holding a cookie proves nothing. The cookie has to be dropped,
+ * and a page render cannot drop one (`cookies()` is mutable only in the action
+ * phase), so this hands off to the Route Handler that can.
+ */
+async function Balance({ token }: { token: string }) {
+  const balance = await webapi.getBalance(token);
+
+  if (balance.code === ResponderCodes.FORBIDDEN) redirectToExpiredSession();
+
+  if (balance.code !== ResponderCodes.SUCCESS || !balance.data) {
+    return <p className="text-sm text-danger">Your balance could not be loaded right now.</p>;
+  }
+
+  return <BalancePanel balances={balance.data} />;
+}
+
+function BalanceFallback() {
+  return (
+    <SkeletonRegion label="Loading your balance">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SkeletonCard lines={1} />
+        <SkeletonCard lines={1} />
+      </div>
+    </SkeletonRegion>
   );
 }

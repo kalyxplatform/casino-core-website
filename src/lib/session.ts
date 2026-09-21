@@ -2,7 +2,7 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import type { PlayerProfile } from './webapi';
+import { COOKIE_NAME, parseSession, type Session } from './session-cookie';
 
 /**
  * The player's session, in ONE httpOnly cookie.
@@ -16,40 +16,30 @@ import type { PlayerProfile } from './webapi';
  * once, in the login response: `GET /user` is still a stub that answers a bare
  * string. If that route grows a real body, this cookie should shrink to the
  * token and the profile should be fetched.
+ *
+ * The cookie's name and the judgement of whether a value is a session live in
+ * `session-cookie.ts`, because `proxy.ts` needs both and cannot import this
+ * module — see the note there.
  */
-const COOKIE_NAME = 'ccore_session';
+
+export { COOKIE_NAME, parseSession, type Session };
 
 /** The JWT is minted with a 24 h expiry and its `web_session` row expires with it. */
 const MAX_AGE_SECONDS = 24 * 60 * 60;
 
-export interface Session {
-  token: string;
-  player: PlayerProfile;
-}
+/**
+ * Where a page sends a player whose session the API has just refused.
+ *
+ * It is a Route Handler and not the login page because clearing the cookie is the
+ * point of going there, and a page cannot clear one: `cookies()` is mutable only
+ * while `requestStore.phase === 'action'`, so `.delete()` from a render throws
+ * `ReadonlyRequestCookiesError`. A Route Handler builds its own response and can
+ * put `Set-Cookie` on it.
+ */
+export const EXPIRED_SESSION_PATH = '/session/expired';
 
 export async function readSession(): Promise<Session | null> {
-  const cookie = (await cookies()).get(COOKIE_NAME);
-  if (!cookie) return null;
-
-  try {
-    const parsed = JSON.parse(cookie.value) as Session | null;
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      typeof parsed.token === 'string' &&
-      // `user_id` is what makes this the CURRENT profile shape, and checking a
-      // field of it rather than just its type is deliberate: a cookie written
-      // before webapi's fields became snake_case still parses as an object, and
-      // every field read from it would be `undefined`. Refusing it here signs
-      // that player in again instead of rendering a profile full of blanks.
-      typeof parsed.player?.user_id === 'number'
-    ) {
-      return parsed;
-    }
-  } catch {
-    // A cookie we cannot read is a cookie we do not have.
-  }
-  return null;
+  return parseSession((await cookies()).get(COOKIE_NAME)?.value);
 }
 
 /** Only callable from a Server Action or Route Handler — see `cookies()`. */
@@ -65,6 +55,14 @@ export async function writeSession(session: Session): Promise<void> {
   });
 }
 
+/**
+ * Drop the cookie.
+ *
+ * Callable ONLY from a Server Action or a Route Handler. `cookies()` is mutable
+ * only while the request is in its action phase, so calling this during a page
+ * render throws — which is why a page the API answers `403` for redirects to
+ * `EXPIRED_SESSION_PATH` instead of clearing the cookie itself.
+ */
 export async function clearSession(): Promise<void> {
   (await cookies()).delete(COOKIE_NAME);
 }
@@ -72,13 +70,33 @@ export async function clearSession(): Promise<void> {
 /**
  * The session, or a redirect to the login page.
  *
+ * `proxy.ts` already turned a signed-out request for this page into a redirect
+ * before it reached the render, so in practice this does not fire. It stays
+ * because the proxy is a gate and not a guarantee — a route added to `app/` and
+ * forgotten in the matcher must still refuse to render a player's page without a
+ * player — and because it is what gives the rest of the function a `Session`
+ * rather than a `Session | null` to work with.
+ *
  * A JWT that has not expired is still refused when its `web_session` row is
  * gone — the backend checks the two independently — so holding a cookie is not
  * the same as being signed in. Every page that uses this must still treat a
- * `403` from the API as "signed out" (see `requireFreshSession`).
+ * `403` from the API as "signed out": see `redirectToExpiredSession`.
  */
 export async function requireSession(): Promise<Session> {
   const session = await readSession();
   if (!session) redirect('/login');
   return session;
+}
+
+/**
+ * What a page does when the API answers `403` for a cookie we still hold.
+ *
+ * A JWT that has not expired is still refused once its `web_session` row is gone,
+ * so holding a cookie is not being signed in. The cookie has to go, and a render
+ * cannot delete it, so this hands the request to the Route Handler that can.
+ *
+ * This throws (`redirect` always does), so a caller does not need to return.
+ */
+export function redirectToExpiredSession(): never {
+  redirect(EXPIRED_SESSION_PATH);
 }

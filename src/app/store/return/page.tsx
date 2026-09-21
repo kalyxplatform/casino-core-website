@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { clearSession, requireSession } from '@/lib/session';
+import { redirectToExpiredSession, requireSession } from '@/lib/session';
 import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { AppShell } from '@/components/AppShell';
@@ -39,10 +38,8 @@ export default async function StoreReturnPage(props: PageProps<'/store/return'>)
   const reference = typeof ref === 'string' ? ref : '';
   const order = reference ? await webapi.readOrder(session.token, reference) : null;
 
-  if (order?.code === ResponderCodes.FORBIDDEN) {
-    await clearSession();
-    redirect('/login');
-  }
+  // The cookie cannot be dropped from a render — see `redirectToExpiredSession`.
+  if (order?.code === ResponderCodes.FORBIDDEN) redirectToExpiredSession();
 
   const found = order?.code === ResponderCodes.SUCCESS ? order.data : undefined;
 

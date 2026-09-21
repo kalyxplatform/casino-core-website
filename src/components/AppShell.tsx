@@ -1,16 +1,26 @@
 import Link from 'next/link';
 import { logoutAction } from '@/actions/auth';
 import type { PlayerProfile } from '@/lib/webapi';
+import { SkeletonBar } from '@/components/Skeleton';
 
 type Tab = 'account' | 'games' | 'store';
 
-/** The chrome every signed-in page sits in: who you are, where you can go, and out. */
+/**
+ * The chrome every signed-in page sits in: who you are, where you can go, and out.
+ *
+ * `player` is OPTIONAL, and that is what lets each route's `loading.tsx` render
+ * this same shell. A `loading.tsx` is the prefetched shell of a dynamic route, so
+ * it must not read the session — if it did, the shell would be dynamic and there
+ * would be nothing to prefetch, which is the whole problem it exists to solve.
+ * Everything in this header except the email address is already known statically:
+ * the nav is three fixed links and `current` is a literal at each call site.
+ */
 export function AppShell({
   player,
   current,
   children,
 }: {
-  player: PlayerProfile;
+  player?: PlayerProfile;
   current: Tab;
   children: React.ReactNode;
 }) {
@@ -38,7 +48,9 @@ export function AppShell({
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-sm text-ink-muted sm:inline">{player.email}</span>
+            <span className="hidden text-sm text-ink-muted sm:inline">
+              {player ? player.email : <SkeletonBar className="h-4 w-36" />}
+            </span>
             <form action={logoutAction}>
               <button
                 type="submit"

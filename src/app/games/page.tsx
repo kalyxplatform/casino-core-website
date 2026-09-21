@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { clearSession, requireSession } from '@/lib/session';
 import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
+import { currencyLabel } from '@/lib/money';
 import { AppShell } from '@/components/AppShell';
 import { GameLobby } from './GameLobby';
 
@@ -39,22 +40,31 @@ export default async function GamesPage() {
    * currencies a player holds without saying what kind they are — so the kind comes
    * from `GET /currency`.
    *
-   * When that read fails the picker offers every held currency instead of nothing:
-   * the launch route decides this question anyway, and refusing to show a picker
-   * because a cached lookup was unavailable would break a lobby that works.
+   * This filter FAILS OPEN, and on more than a failed request. A `200` carrying a
+   * body this app cannot read is the same outage as a `500` — it happened: a stale
+   * `webapi` cache kept answering the pre-`snake_case` spelling (`Type`, `Code`)
+   * long after the rename deployed, every `currency.type` read `undefined`, and a
+   * lobby with real balances behind it told the player they had none. So a set that
+   * recognises NOTHING is treated as no answer rather than as "nothing is playable";
+   * the launch route decides this question anyway and refuses what it must.
+   *
+   * Codes are compared through `currencyLabel` — the trailing dot in `GC.` is seed
+   * data, the backend's own fixtures disagree about it, and this was the one
+   * comparison in the app still reading it raw.
    */
   const social =
     currencies.code === ResponderCodes.SUCCESS && currencies.data
       ? new Set(
           currencies.data
             .filter((currency) => currency.type === 'social' && currency.status === 'active')
-            .map((currency) => currency.code),
+            .map((currency) => currencyLabel(currency.code)),
         )
       : null;
 
-  const playable = social
-    ? accounts.filter((account) => social.has(account.currency.code))
-    : accounts;
+  const playable =
+    social && social.size > 0
+      ? accounts.filter((account) => social.has(currencyLabel(account.currency.code)))
+      : accounts;
 
   return (
     <AppShell player={session.player} current="games">

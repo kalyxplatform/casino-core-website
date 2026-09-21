@@ -2,7 +2,7 @@
  * Money is a STRING from the API to the screen, and it is never a `number` on
  * the way.
  *
- * `account.AvailableBalance` is `decimal(65,30)` and arrives as
+ * `account.available_balance` is `decimal(65,30)` and arrives as
  * `"100000.000000000000000000000000000000"`. `parseFloat` on that is a silent
  * precision loss, and the backend's own rule ("every DECIMAL column is a
  * `string` in TypeScript — never retype one to `number`") applies just as much
@@ -40,12 +40,23 @@ export function formatAmount(raw: string, decimals: number): string {
  *
  * Social coins and fiat are both 2. Crypto would be up to 8 — this table is
  * where that goes when a crypto currency exists, rather than a guess at the
- * call site. The codes carry the backend's trailing dot (`GC.`, `SC.`).
+ * call site.
+ *
+ * It is keyed on the NORMALISED code, because the backend's own contract
+ * fixtures spell the seeded social currencies both ways: `balance-success.json`
+ * says `GC`, while `store-packages-success.json` and `games-launch-request.json`
+ * say `GC.`. Whichever the environment actually holds, a gold coin must not fall
+ * through to two decimals — so the dot is stripped before the lookup rather than
+ * being part of the key.
  */
-const DECIMALS: Record<string, number> = { 'GC.': 0, 'SC.': 2, USD: 2 };
+const DECIMALS: Record<string, number> = { GC: 0, SC: 2, USD: 2 };
+
+/**
+ * A currency code without the backend's trailing dot — `GC.` reads badly in a
+ * sentence, and the dot is an artefact of the seed data rather than part of the
+ * currency's name. Also the one way to compare two codes for the same currency.
+ */
+export const currencyLabel = (code: string): string => code.replace(/\.$/, '');
 
 export const formatBalance = (raw: string, currencyCode: string): string =>
-  formatAmount(raw, DECIMALS[currencyCode] ?? 2);
-
-/** `GC.` reads badly in a sentence; the trailing dot is a backend artefact. */
-export const currencyLabel = (code: string): string => code.replace(/\.$/, '');
+  formatAmount(raw, DECIMALS[currencyLabel(currencyCode)] ?? 2);

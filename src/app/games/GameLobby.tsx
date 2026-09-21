@@ -46,10 +46,15 @@ export function GameLobby({
   /**
    * Sweeps coins first when the player holds them: `SC.` is the currency a
    * sweepstake game is meant to be played in, and `GC.` is the play-money one.
+   *
+   * Compared through `currencyLabel` because the trailing dot is seed data and
+   * the backend's own fixtures disagree about it — an environment holding `SC`
+   * must still get sweeps coins preselected rather than silently falling back
+   * to whichever account happens to come first.
    */
   const preferred =
-    accounts.find((account) => account.Currency.Code === 'SC.') ?? accounts[0];
-  const [currencyCode, setCurrencyCode] = useState(preferred?.Currency.Code ?? '');
+    accounts.find((account) => currencyLabel(account.currency.code) === 'SC') ?? accounts[0];
+  const [currencyCode, setCurrencyCode] = useState(preferred?.currency.code ?? '');
 
   /**
    * Which build of the game the launcher should hand back.
@@ -83,7 +88,7 @@ export function GameLobby({
   };
 
   const playingAccount = accounts.find(
-    (account) => account.Currency.Code === playing?.currencyCode,
+    (account) => account.currency.code === playing?.currencyCode,
   );
   const playingGame = games.find((game) => game.code === playing?.gameCode);
 
@@ -110,11 +115,11 @@ export function GameLobby({
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {accounts.map((account) => {
-                const code = account.Currency.Code;
+                const code = account.currency.code;
                 const selected = code === currencyCode;
                 return (
                   <label
-                    key={account.Id}
+                    key={account.id}
                     className={`cursor-pointer rounded-lg border px-3 py-2 text-sm transition ${
                       selected
                         ? 'border-accent bg-accent/10 text-ink'
@@ -131,7 +136,7 @@ export function GameLobby({
                     />
                     <span className="font-medium">{currencyLabel(code)}</span>{' '}
                     <span className="tabular-nums">
-                      {formatBalance(account.AvailableBalance, code)}
+                      {formatBalance(account.available_balance, code)}
                     </span>
                   </label>
                 );
@@ -154,12 +159,14 @@ export function GameLobby({
               className="flex flex-col rounded-xl border border-edge bg-surface p-4"
             >
               <p className="text-sm font-medium">{game.name}</p>
-              <p className="mt-1 flex-1 text-xs text-ink-muted">{game.gameProvider}</p>
+              <p className="mt-1 flex-1 text-xs text-ink-muted">{game.game_provider}</p>
 
               {/*
-                The ENTIRE body of POST /games/launch is these three properties. The
-                player and the brand come from the session and the brand key, and a
-                body that named either would be refused as an unknown property.
+                The three properties that are the ENTIRE body of POST /games/launch. The
+                player and the brand come from the session and the brand key, and a body
+                that named either would be refused as an unknown property. These names are
+                the FORM's — `launchAction` maps them to the body's `game_code` and
+                `currency_code`.
               */}
               <input type="hidden" name="gameCode" value={game.code} />
               <input type="hidden" name="currencyCode" value={currencyCode} />

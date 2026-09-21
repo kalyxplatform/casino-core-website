@@ -9,7 +9,7 @@ import { BalancePanel } from '@/components/BalancePanel';
 /**
  * Profile and balance.
  *
- * The profile is the `User` block the login response carried, held in the
+ * The profile is the `user` block the login response carried, held in the
  * session cookie: `GET /user` is still a stub that answers a bare string, so
  * there is nothing else to read it from yet.
  *
@@ -28,11 +28,11 @@ export default async function AccountPage() {
   }
 
   const rows = [
-    ['Player id', String(session.player.UserId)],
-    ['Email', session.player.Email],
-    ['Status', session.player.Status],
-    ['Brand id', String(session.player.BrandId)],
-    ['Country id', String(session.player.CountryId)],
+    ['Player id', String(session.player.user_id)],
+    ['Email', session.player.email],
+    ['Status', session.player.status],
+    ['Brand id', String(session.player.brand_id)],
+    ['Country id', String(session.player.country_id)],
   ];
 
   return (

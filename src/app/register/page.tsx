@@ -6,7 +6,7 @@ import { ResponderCodes } from '@/lib/webapi';
 import { RegisterForm } from './RegisterForm';
 
 /**
- * `countryId` is REQUIRED by `RegisterRequestDto` and there is no IP-geolocation
+ * `country_id` is REQUIRED by `RegisterRequestDto` and there is no IP-geolocation
  * fallback any more — it was removed deliberately, so the form must always
  * offer a real choice rather than guessing one.
  */

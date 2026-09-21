@@ -32,14 +32,19 @@ export async function readSession(): Promise<Session | null> {
   if (!cookie) return null;
 
   try {
-    const parsed: unknown = JSON.parse(cookie.value);
+    const parsed = JSON.parse(cookie.value) as Session | null;
     if (
       typeof parsed === 'object' &&
       parsed !== null &&
-      typeof (parsed as Session).token === 'string' &&
-      typeof (parsed as Session).player === 'object'
+      typeof parsed.token === 'string' &&
+      // `user_id` is what makes this the CURRENT profile shape, and checking a
+      // field of it rather than just its type is deliberate: a cookie written
+      // before webapi's fields became snake_case still parses as an object, and
+      // every field read from it would be `undefined`. Refusing it here signs
+      // that player in again instead of rendering a profile full of blanks.
+      typeof parsed.player?.user_id === 'number'
     ) {
-      return parsed as Session;
+      return parsed;
     }
   } catch {
     // A cookie we cannot read is a cookie we do not have.

@@ -47,8 +47,8 @@ export async function checkoutAction(
 
   return {
     error: null,
-    redirectUrl: checkout.data.RedirectUrl,
-    reference: checkout.data.Reference,
+    redirectUrl: checkout.data.redirect_url,
+    reference: checkout.data.reference,
   };
 }
 
@@ -63,5 +63,5 @@ export async function readOrderStatus(
   if (order.code !== ResponderCodes.SUCCESS || !order.data) {
     return { status: null, creditedAt: null };
   }
-  return { status: order.data.Status, creditedAt: order.data.CreditedAt };
+  return { status: order.data.status, creditedAt: order.data.credited_at };
 }

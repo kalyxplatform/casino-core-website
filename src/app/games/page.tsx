@@ -47,13 +47,13 @@ export default async function GamesPage() {
     currencies.code === ResponderCodes.SUCCESS && currencies.data
       ? new Set(
           currencies.data
-            .filter((currency) => currency.Type === 'social' && currency.Status === 'active')
-            .map((currency) => currency.Code),
+            .filter((currency) => currency.type === 'social' && currency.status === 'active')
+            .map((currency) => currency.code),
         )
       : null;
 
   const playable = social
-    ? accounts.filter((account) => social.has(account.Currency.Code))
+    ? accounts.filter((account) => social.has(account.currency.code))
     : accounts;
 
   return (

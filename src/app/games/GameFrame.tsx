@@ -56,9 +56,9 @@ export function GameFrame({
         {account && (
           <p className="rounded-full bg-surface-raised px-2.5 py-1 text-xs tabular-nums text-ink-muted">
             <span className="font-medium text-ink">
-              {formatBalance(account.AvailableBalance, account.Currency.Code)}
+              {formatBalance(account.available_balance, account.currency.code)}
             </span>{' '}
-            {currencyLabel(account.Currency.Code)}
+            {currencyLabel(account.currency.code)}
           </p>
         )}
 

@@ -9,16 +9,23 @@ import 'server-only';
  * answered with no CORS headers at all. The browser talks to our Server Actions
  * and Server Components; only this module talks to the API.
  *
- * Two conventions from the backend's CLAUDE.md that shape everything below:
+ * Three conventions from the backend's CLAUDE.md that shape everything below:
  *
  *  1. **The HTTP status is not the outcome.** Business routes are pinned to
  *     `@HttpCode(200)` and answer `{ code, message, data? }`. A wrong password,
  *     an invalid field and an expired session are all HTTP 200. Branch on
  *     `body.code`; a client that branches on `response.status` misses every one.
- *  2. **Tenancy comes from the BRAND KEY.** Every brand's site is served by one
+ *  2. **Every field on this wire is `snake_case`** (backend, 2026-09-21). Request
+ *     bodies and response bodies both: `access_token`, `available_balance`,
+ *     `game_code`, `package_id`. The shapes below mirror the checked-in fixtures
+ *     under `casino-core-backend/specs/<feature>/contracts/` key for key, on
+ *     purpose — those fixtures are the authority, and a shape spelled the same as
+ *     the fixture can be diffed against it by eye. `apps/integrations` did NOT
+ *     change; that wire is Revolver's, not ours.
+ *  3. **Tenancy comes from the BRAND KEY.** Every brand's site is served by one
  *     shared `webapi`, so the address says nothing about which brand is calling.
  *     `X-Brand-Key` does: a secret this server holds and the browser never sees.
- *     Nothing here sends a `brandId`, and sending one would be refused as an
+ *     Nothing here sends a `brand_id`, and sending one would be refused as an
  *     unknown property — the key is the selector, and unlike an id it cannot be
  *     guessed by anyone who wants to act as this brand.
  */
@@ -122,76 +129,76 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
 
 /** `specs/001-player-auth-balance/contracts/login-success.json`. */
 export interface LoginData {
-  AccessToken: string;
-  User: PlayerProfile;
+  access_token: string;
+  user: PlayerProfile;
 }
 
 /**
  * The player block the login response carries.
  *
- * The wire shape did NOT follow the `user` -> `player` rename: this is still
- * `UserId` (D-025), and `GET /user` is a stub that returns a bare string, so
- * this login block is the only profile the API publishes today.
+ * The wire shape did NOT follow the `user` -> `player` rename: the id is still
+ * `user_id` and not `player_id` (D-025). `GET /user` is a stub that returns a
+ * bare string, so this login block is the only profile the API publishes today.
  */
 export interface PlayerProfile {
-  UserId: number;
-  Email: string;
-  CountryId: number;
-  BrandId: number;
-  Status: string;
+  user_id: number;
+  email: string;
+  country_id: number;
+  brand_id: number;
+  status: string;
 }
 
 /** `contracts/balance-success.json`. Balances are STRINGS — never parse them. */
 export interface AccountBalance {
-  Id: number;
-  AvailableBalance: string;
-  LockedBalance: string;
-  Currency: { Id: number; Code: string };
+  id: number;
+  available_balance: string;
+  locked_balance: string;
+  currency: { id: number; code: string };
 }
 
 /** `specs/002-social-currency-store/contracts/store-packages-success.json`. */
 export interface StorePackage {
-  Id: number;
-  Code: string;
-  Tag: string | null;
-  Price: string;
-  PriceCurrency: string;
-  Items: { Currency: string; Amount: string; Kind: 'purchased' | 'bonus' }[];
+  id: number;
+  code: string;
+  tag: string | null;
+  price: string;
+  price_currency: string;
+  items: { currency: string; amount: string; kind: 'purchased' | 'bonus' }[];
 }
 
 /** `specs/003-store-purchase-checkout/contracts/checkout-success.json`. */
 export interface CheckoutSession {
-  Reference: string;
-  Status: string;
-  RedirectUrl: string;
-  ExpiresAt: string;
+  reference: string;
+  status: string;
+  redirect_url: string;
+  expires_at: string;
 }
 
 /** `contracts/order-credited.json`. */
 export interface StoreOrder {
-  Reference: string;
-  Status: 'pending' | 'credited' | 'failed' | 'expired' | 'review' | 'refunded' | 'disputed';
-  PaidLate: boolean;
-  PackageCode: string;
-  Price: string;
-  PriceCurrency: string;
-  Items: { Currency: string; Amount: string; Kind: 'purchased' | 'bonus' }[];
-  CreatedAt: string;
-  ExpiresAt: string;
-  CreditedAt: string | null;
+  reference: string;
+  status: 'pending' | 'credited' | 'failed' | 'expired' | 'review' | 'refunded' | 'disputed';
+  paid_late: boolean;
+  package_code: string;
+  price: string;
+  price_currency: string;
+  items: { currency: string; amount: string; kind: 'purchased' | 'bonus' }[];
+  created_at: string;
+  expires_at: string;
+  credited_at: string | null;
 }
 
 /**
  * `specs/004-revolver-game-provider/contracts/games-list-success.json`.
  *
- * `gameProvider` is a GAME provider — a game studio or aggregator. It is never a
+ * `game_provider` is a GAME provider — a game studio or aggregator. It is never a
  * bare `provider`: in this platform that word also means a PAYMENT provider, and
  * the two are unrelated.
  */
 export interface GameSummary {
   code: string;
   name: string;
-  gameProvider: string;
+  game_provider: string;
 }
 
 /**
@@ -208,28 +215,32 @@ export interface GameLaunch {
 
 /** `GET /currency` — public, and in social mode it lists only social currencies. */
 export interface CurrencyOption {
-  Id: number;
-  Code: string;
-  Type: string;
-  Status: string;
+  id: number;
+  code: string;
+  type: string;
+  status: string;
 }
 
 export interface CountryOption {
-  Id: number;
-  Name: string;
-  IsoCode2: string;
-  PhoneCode: string;
-  AgeLimit: number;
+  id: number;
+  name: string;
+  iso_code2: string;
+  phone_code: string;
+  age_limit: number;
 }
 
 /* ------------------------------------------------------------------ routes */
 
-/** `POST /registration`. No `brandId` and no `Email`-cased variants: the DTO is exact. */
-export const register = (input: { Email: string; Password: string; countryId: number }) =>
+/**
+ * `POST /registration`. No `brand_id`, and the DTO is exact: `country_id` is
+ * required, and `currency_id` is optional and ignored in social mode, so it is
+ * not sent at all rather than sent as null.
+ */
+export const register = (input: { email: string; password: string; country_id: number }) =>
   request<never>('/registration', { method: 'POST', body: input });
 
-/** `POST /auth/login`. Capitalised `Identifier`/`Password`, and no `brandId`. */
-export const login = (input: { Identifier: string; Password: string }) =>
+/** `POST /auth/login`. `identifier`, not `email` — and no `brand_id`. */
+export const login = (input: { identifier: string; password: string }) =>
   request<LoginData>('/auth/login', { method: 'POST', body: input });
 
 /** `POST /auth/logout`. Ends only the presented session, not the player's others. */
@@ -254,23 +265,27 @@ export const listGames = (token: string) =>
   request<{ games: GameSummary[] }>('/games', { token });
 
 /**
- * `POST /games/launch`. The body is EXACTLY `{ gameCode, currencyCode, variant? }`.
+ * `POST /games/launch`. The body is EXACTLY `{ game_code, currency_code, variant? }`.
  *
  * The player comes from the session and the brand from the brand key, so a body
  * that named either would be refused as an unknown property — the same rule the
- * checkout body follows.
+ * checkout body follows. `variant` alone kept its spelling: it was never two words.
  */
 export const launchGame = (
   token: string,
-  input: { gameCode: string; currencyCode: string; variant?: 'desktop' | 'mobile' },
+  input: { game_code: string; currency_code: string; variant?: 'desktop' | 'mobile' },
 ) => request<GameLaunch>('/games/launch', { method: 'POST', token, body: input });
 
 export const listPackages = (token: string) =>
   request<StorePackage[]>('/store/packages', { token });
 
-/** `POST /store/checkout`. The body is EXACTLY `{ packageId }` — anything else is a 400. */
+/** `POST /store/checkout`. The body is EXACTLY `{ package_id }` — anything else is a 400. */
 export const startCheckout = (token: string, packageId: number) =>
-  request<CheckoutSession>('/store/checkout', { method: 'POST', token, body: { packageId } });
+  request<CheckoutSession>('/store/checkout', {
+    method: 'POST',
+    token,
+    body: { package_id: packageId },
+  });
 
 export const readOrder = (token: string, reference: string) =>
   request<StoreOrder>(`/store/orders/${encodeURIComponent(reference)}`, { token });

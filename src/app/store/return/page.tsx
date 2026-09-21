@@ -56,10 +56,10 @@ export default async function StoreReturnPage(props: PageProps<'/store/return'>)
    * confirmed" at once, and sat there polling for a payment nobody made.
    */
   const wasCancelled = cancelled === '1';
-  const awaitingOutcome = found?.Status === 'pending' && !wasCancelled;
+  const awaitingOutcome = found?.status === 'pending' && !wasCancelled;
   const outcome =
-    found && !(wasCancelled && found.Status === 'pending')
-      ? OUTCOMES[found.Status]
+    found && !(wasCancelled && found.status === 'pending')
+      ? OUTCOMES[found.status]
       : undefined;
 
   return (
@@ -78,39 +78,39 @@ export default async function StoreReturnPage(props: PageProps<'/store/return'>)
 
         {found && outcome && <Alert tone={outcome.tone}>{outcome.message}</Alert>}
 
-        {awaitingOutcome && found && <OrderPoller reference={found.Reference} />}
+        {awaitingOutcome && found && <OrderPoller reference={found.reference} />}
 
         {found && (
           <>
             <dl className="divide-y divide-edge text-sm">
               <div className="flex justify-between gap-4 py-2">
                 <dt className="text-ink-muted">Package</dt>
-                <dd className="font-medium">{found.PackageCode}</dd>
+                <dd className="font-medium">{found.package_code}</dd>
               </div>
               <div className="flex justify-between gap-4 py-2">
                 <dt className="text-ink-muted">Price</dt>
                 <dd className="font-medium tabular-nums">
-                  {formatAmount(found.Price, 2)} {found.PriceCurrency}
+                  {formatAmount(found.price, 2)} {found.price_currency}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 py-2">
                 <dt className="text-ink-muted">Status</dt>
-                <dd className="font-medium">{found.Status}</dd>
+                <dd className="font-medium">{found.status}</dd>
               </div>
               <div className="flex justify-between gap-4 py-2">
                 <dt className="text-ink-muted">Reference</dt>
-                <dd className="font-mono text-xs">{found.Reference}</dd>
+                <dd className="font-mono text-xs">{found.reference}</dd>
               </div>
             </dl>
 
             <ul className="space-y-1">
-              {found.Items.map((item) => (
-                <li key={`${item.Currency}-${item.Kind}`} className="text-sm text-ink-muted">
+              {found.items.map((item) => (
+                <li key={`${item.currency}-${item.kind}`} className="text-sm text-ink-muted">
                   <span className="font-medium text-ink tabular-nums">
-                    {formatBalance(item.Amount, item.Currency)}
+                    {formatBalance(item.amount, item.currency)}
                   </span>{' '}
-                  {currencyLabel(item.Currency)}
-                  {item.Kind === 'bonus' && <span className="text-accent"> bonus</span>}
+                  {currencyLabel(item.currency)}
+                  {item.kind === 'bonus' && <span className="text-accent"> bonus</span>}
                 </li>
               ))}
             </ul>

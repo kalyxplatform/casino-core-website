@@ -39,7 +39,11 @@ export async function registerAction(_previous: FormState, formData: FormData): 
   if (!email || !password) return { error: 'Enter an email address and a password.' };
   if (!Number.isInteger(countryId) || countryId < 1) return { error: 'Choose a country.' };
 
-  const registration = await webapi.register({ Email: email, Password: password, countryId });
+  const registration = await webapi.register({
+    email,
+    password,
+    country_id: countryId,
+  });
   if (registration.code !== ResponderCodes.SUCCESS) {
     return { error: readableError(registration, 'Registration could not be completed.') };
   }
@@ -47,12 +51,15 @@ export async function registerAction(_previous: FormState, formData: FormData): 
   // Registration does not return a session, so sign the new player straight in.
   // A failure here is not a failed registration — the account exists — so it
   // sends them to the login page rather than reporting an error on this form.
-  const authentication = await webapi.login({ Identifier: email, Password: password });
+  const authentication = await webapi.login({ identifier: email, password });
   if (authentication.code !== ResponderCodes.SUCCESS || !authentication.data) {
     redirect('/login?registered=1');
   }
 
-  await writeSession({ token: authentication.data.AccessToken, player: authentication.data.User });
+  await writeSession({
+    token: authentication.data.access_token,
+    player: authentication.data.user,
+  });
   redirect('/account');
 }
 
@@ -62,12 +69,15 @@ export async function loginAction(_previous: FormState, formData: FormData): Pro
 
   if (!identifier || !password) return { error: 'Enter your email address and password.' };
 
-  const authentication = await webapi.login({ Identifier: identifier, Password: password });
+  const authentication = await webapi.login({ identifier, password });
   if (authentication.code !== ResponderCodes.SUCCESS || !authentication.data) {
     return { error: readableError(authentication, 'Sign in could not be completed.') };
   }
 
-  await writeSession({ token: authentication.data.AccessToken, player: authentication.data.User });
+  await writeSession({
+    token: authentication.data.access_token,
+    player: authentication.data.user,
+  });
   redirect('/account');
 }
 

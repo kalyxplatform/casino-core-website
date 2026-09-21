@@ -43,8 +43,8 @@ export async function launchAction(
   }
 
   const launch = await webapi.launchGame(session.token, {
-    gameCode,
-    currencyCode,
+    game_code: gameCode,
+    currency_code: currencyCode,
     variant: variantOf(formData.get('variant')),
   });
 

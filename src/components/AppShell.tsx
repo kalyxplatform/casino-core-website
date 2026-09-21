@@ -38,7 +38,7 @@ export function AppShell({
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-sm text-ink-muted sm:inline">{player.Email}</span>
+            <span className="hidden text-sm text-ink-muted sm:inline">{player.email}</span>
             <form action={logoutAction}>
               <button
                 type="submit"

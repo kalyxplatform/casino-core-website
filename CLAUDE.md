@@ -57,22 +57,44 @@ them: `403` FORBIDDEN, `415` REJECTED, `416` NOBALANCE.
 These are checked in at `core/casino-core-backend/specs/*/contracts/` and pinned by contract
 tests. Read them before changing a request shape.
 
+### Every field on this wire is `snake_case`
+
+Since 2026-09-21 the whole `webapi` wire — request bodies AND response bodies — is
+`snake_case`: `access_token`, `available_balance`, `game_code`, `package_id`. The
+shapes in `src/lib/webapi.ts` mirror the checked-in fixtures key for key so the two
+can be diffed by eye. `apps/integrations` did **not** change; that wire is Revolver's.
+
+Two consequences that are easy to miss:
+
+- **A session cookie written before the rename is not readable after it.** It still
+  parses as an object, so every field read from it would be `undefined` rather than
+  an error. `readSession()` therefore checks for `player.user_id` specifically and
+  treats anything else as no session, which signs the player in again instead of
+  rendering a profile of blanks.
+- **The two repos must deploy in order.** This site speaks only the new spelling, so
+  it breaks against a `webapi` that has not shipped the rename — deploy the backend
+  first.
+
+Names that did NOT change: `code` / `message` / `data` on the envelope, `variant` on
+the launch body, `url` on the launch response, and the `status` slugs themselves.
+
 | Thing | Reality |
 |---|---|
 | Registration route | `POST /registration`, **not** `/auth/register` |
-| Registration body | `{ Email, Password, countryId }` — `countryId` is **required**, there is no GeoIP fallback |
-| Login body | `{ Identifier, Password }` — capitalised, and **no `brandId`** |
-| `brandId` anywhere | **Never send it.** Tenancy is resolved from the request `Host`; an unknown property is refused with `code 400` |
-| Login response | `{ AccessToken, User: { UserId, Email, CountryId, BrandId, Status } }` — still `UserId`, the wire shape did not follow the `user` → `player` rename |
+| Registration body | `{ email, password, country_id }` — `country_id` is **required**, there is no GeoIP fallback. `currency_id` is optional and ignored in social mode, so it is not sent |
+| Login body | `{ identifier, password }` — `identifier`, not `email`, and **no `brand_id`** |
+| `brand_id` anywhere | **Never send it.** Tenancy is the `X-Brand-Key` header; an unknown property is refused with `code 400` |
+| Login response | `{ access_token, user: { user_id, email, country_id, brand_id, status } }` — the id is still `user_id`, not `player_id`: the wire did not follow the `user` → `player` rename |
 | `GET /user` | A **stub** that returns a bare string. The profile comes from the login response; that is why it is in the session cookie |
 | Balances | **Strings**, `decimal(65,30)`. Never `parseFloat`. See `src/lib/money.ts` |
-| Currency codes | `GC.` and `SC.` — with a trailing dot |
-| Checkout body | Exactly `{ packageId }`. A price, a currency or a player in the body is a `400` |
-| Launch body | Exactly `{ gameCode, currencyCode, variant? }`. `variant` is `desktop` or `mobile` |
+| Currency codes | `GC.` and `SC.` — with a trailing dot, as the development database actually holds them. The backend's own fixtures disagree (`balance-success.json` says `GC`), so compare codes through `currencyLabel()`, which strips it |
+| Checkout body | Exactly `{ package_id }`. A price, a currency or a player in the body is a `400` |
+| Launch body | Exactly `{ game_code, currency_code, variant? }`. `variant` kept its spelling — it was never two words — and is `desktop` or `mobile` |
 | Launch refusals | `launch-not-available` is ONE answer for unknown game, disabled game, disabled **game provider**, non-social currency and no account in it — never say which |
-| `gameProvider` | A game studio. Never a bare `provider` — in this platform that also means a PAYMENT provider, and the two are unrelated |
+| `game_provider` | A game studio. Never a bare `provider` — in this platform that also means a PAYMENT provider, and the two are unrelated |
 | Playable currencies | Social only. The balance response does not carry a currency's type, so `GET /currency` supplies it |
 | Checkout errors | Slugs (`checkout-in-progress`, `too-many-attempts`, `not-found`), mapped to sentences in `src/actions/store.ts` |
+| Form field names | `name="packageId"` / `name="gameCode"` in a `<form>` are the FORM's names, not the wire's. The Server Action is the one place that maps them onto the body |
 
 ## The purchase flow
 
@@ -84,7 +106,7 @@ page reads the ORDER and never infers success from having been redirected to.
 The flow is an ordinary full-page round trip:
 
 ```
-/store  --(POST /store/checkout)-->  RedirectUrl (sandbox page, on the API host)
+/store  --(POST /store/checkout)-->  redirect_url (sandbox page, on the API host)
         --(player pays)-->           /store/return?ref=…  (back here)
 ```
 

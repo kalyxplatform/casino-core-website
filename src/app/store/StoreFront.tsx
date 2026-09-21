@@ -67,42 +67,43 @@ export function StoreFront({ packages, failed }: { packages: StorePackage[]; fai
       <div className="grid gap-3 sm:grid-cols-2">
         {packages.map((offer) => (
           <form
-            key={offer.Id}
+            key={offer.id}
             action={startCheckout}
             className="flex flex-col rounded-xl border border-edge bg-surface p-4"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium">{offer.Code}</p>
-              {offer.Tag && (
+              <p className="text-sm font-medium">{offer.code}</p>
+              {offer.tag && (
                 <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
-                  {offer.Tag}
+                  {offer.tag}
                 </span>
               )}
             </div>
 
             <p className="mt-2 text-2xl font-semibold tabular-nums">
-              {formatAmount(offer.Price, 2)}{' '}
-              <span className="text-sm font-normal text-ink-muted">{offer.PriceCurrency}</span>
+              {formatAmount(offer.price, 2)}{' '}
+              <span className="text-sm font-normal text-ink-muted">{offer.price_currency}</span>
             </p>
 
             <ul className="mt-3 flex-1 space-y-1">
-              {offer.Items.map((item) => (
-                <li key={`${item.Currency}-${item.Kind}`} className="text-sm text-ink-muted">
+              {offer.items.map((item) => (
+                <li key={`${item.currency}-${item.kind}`} className="text-sm text-ink-muted">
                   <span className="font-medium text-ink tabular-nums">
-                    {formatBalance(item.Amount, item.Currency)}
+                    {formatBalance(item.amount, item.currency)}
                   </span>{' '}
-                  {currencyLabel(item.Currency)}
-                  {item.Kind === 'bonus' && <span className="text-accent"> bonus</span>}
+                  {currencyLabel(item.currency)}
+                  {item.kind === 'bonus' && <span className="text-accent"> bonus</span>}
                 </li>
               ))}
             </ul>
 
             {/*
-              The ENTIRE body of POST /store/checkout is `{ packageId }`. The price, the
+              The ENTIRE body of POST /store/checkout is `{ package_id }`. The price, the
               currency and the player come from the order the backend mints; a form that
-              posted a price would be refused outright.
+              posted a price would be refused outright. This field name is the FORM's, not
+              the wire's — `checkoutAction` is what names the one property the body has.
             */}
-            <input type="hidden" name="packageId" value={offer.Id} />
+            <input type="hidden" name="packageId" value={offer.id} />
 
             <div className="mt-4">
               <SubmitButton pendingLabel="Starting…" variant="quiet">

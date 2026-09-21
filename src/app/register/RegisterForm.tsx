@@ -63,8 +63,8 @@ export function RegisterForm({ countries }: { countries: CountryOption[] }) {
             Select a country
           </option>
           {countries.map((country) => (
-            <option key={country.Id} value={country.Id}>
-              {country.Name}
+            <option key={country.id} value={country.id}>
+              {country.name}
             </option>
           ))}
         </select>

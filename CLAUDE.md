@@ -106,7 +106,8 @@ page reads the ORDER and never infers success from having been redirected to.
 The flow is an ordinary full-page round trip:
 
 ```
-/store  --(POST /store/checkout)-->  redirect_url (sandbox page, on the API host)
+/store  --(POST /store/checkout)-->  redirect_url (OUR payment gateway on the integrations host, since D-058;
+                                       it 303s on to the provider's page — the sandbox page, on that same host)
         --(player pays)-->           /store/return?ref=…  (back here)
 ```
 

@@ -1,6 +1,7 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  QUICK_REOPEN_MS,
   REOPEN_BACKOFF,
   REOPEN_JITTER_MS,
   reopenDelayMs,
@@ -175,7 +176,7 @@ describe('useLiveChannel — reopen timing through the hook', () => {
     expect(delayUntilNextOpen()).toBe(4_000);
   });
 
-  it('a bye after a healthy hello draws from [0, 20 000] — not the back-off', () => {
+  it('a restarting or replaced bye after a healthy hello draws from [0, 20 000] — not the back-off', () => {
     const random = vi.spyOn(Math, 'random');
     mount();
     current().emit('error');
@@ -183,12 +184,32 @@ describe('useLiveChannel — reopen timing through the hook', () => {
     delayUntilNextOpen();
     current().emit('hello', hello());
     random.mockReturnValue(0.05);
-    current().emit('bye', { reason: 'max-life' });
+    current().emit('bye', { reason: 'restarting' });
     expect(delayUntilNextOpen()).toBe(1_000);
     current().emit('hello', hello());
     random.mockReturnValue(0.9);
-    current().emit('bye', { reason: 'max-life' });
+    current().emit('bye', { reason: 'replaced' });
     expect(delayUntilNextOpen()).toBe(18_000);
+  });
+
+  it('a max-life bye after a healthy hello reopens within 1 s — its end is already spread, and a round settled in the gap waits for it (SC-001)', () => {
+    const random = vi.spyOn(Math, 'random');
+    mount();
+    current().emit('hello', hello());
+    random.mockReturnValue(0.9);
+    current().emit('bye', { reason: 'max-life' });
+    expect(delayUntilNextOpen()).toBe(900);
+    current().emit('hello', hello());
+    random.mockReturnValue(0.999999);
+    current().emit('bye', { reason: 'max-life' });
+    expect(delayUntilNextOpen()).toBeLessThanOrEqual(QUICK_REOPEN_MS);
+  });
+
+  it('a max-life bye BEFORE any hello is still a failure (back-off, not the quick reopen)', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(1);
+    mount();
+    current().emit('bye', { reason: 'max-life' });
+    expect(delayUntilNextOpen()).toBe(4_000);
   });
 
   it('closes the channel and schedules nothing after unmount', () => {

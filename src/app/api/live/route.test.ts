@@ -185,6 +185,44 @@ describe('GET /api/live — the relay', () => {
       vi.clearAllTimers();
     }
   });
+
+  it('at its own lifetime the relay tells the browser: a bye max-life frame, then the stream ends (SC-001)', async () => {
+    vi.useFakeTimers();
+    session = { token: 't' };
+    answer = sseStream;
+    const { GET, maxDuration } = await route();
+    const response = await GET(browserRequest());
+    const reader = response.body!.getReader();
+    const first = await reader.read();
+    expect(new TextDecoder().decode(first.value)).toContain('event: hello');
+    vi.advanceTimersByTime(maxDuration * 1000 * 0.95 + 1);
+    expect(calls[0].signal.aborted).toBe(true);
+    let rest = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      rest += new TextDecoder().decode(value);
+    }
+    expect(rest).toMatch(/\n\nevent: bye\ndata: \{"reason":"max-life"\}\n\n$/);
+  });
+
+  it('the browser leaving ends the stream WITHOUT a bye frame', async () => {
+    session = { token: 't' };
+    answer = sseStream;
+    const browser = new AbortController();
+    const { GET } = await route();
+    const response = await GET(browserRequest(browser.signal));
+    const reader = response.body!.getReader();
+    await reader.read();
+    browser.abort();
+    let rest = '';
+    for (;;) {
+      const { done, value } = await reader.read().catch(() => ({ done: true, value: undefined }));
+      if (done) break;
+      rest += new TextDecoder().decode(value);
+    }
+    expect(rest).not.toContain('event: bye');
+  });
 });
 
 describe('proxy.ts', () => {

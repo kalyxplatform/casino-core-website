@@ -43,6 +43,14 @@ export interface LiveHandlers {
 /** A healthy reopen waits 0–20 s, so a cohort closed together does not return together (PERF-M3/M11). */
 export const REOPEN_JITTER_MS = 20_000;
 /**
+ * A `bye: max-life` after a `hello` reopens within 1 s instead. That end is already
+ * spread — `webapi` jitters a channel's life over 240–300 s and the relay ends its own at
+ * 60–95 % of `maxDuration` — so it is never a cohort, and every second of gap is a second
+ * in which a settled round waits for the reopen's balance re-read (SC-001). `restarting`
+ * (a whole revision at once), `replaced` and `session-ended` keep the cohort jitter.
+ */
+export const QUICK_REOPEN_MS = 1_000;
+/**
  * Back-off after a FAILED open (FR-005, plan M11, SR-M1): `base × 2^failures`, capped,
  * drawn from its upper half, never below the floor. A persistent refusal — the relay's
  * 204 "no channel" for an ended session, `realtime-capacity`, a subscriber-loss close —
@@ -88,15 +96,18 @@ export function useLiveChannel(handlers: LiveHandlers): void {
     /** Consecutive failed opens; reset by `hello`. */
     let failures = 0;
 
-    const scheduleReopen = (failed: boolean) => {
+    const scheduleReopen = (failed: boolean, quick = false) => {
       source?.close();
       source = null;
       if (disposed || reopen !== undefined) return;
       failures = failed ? failures + 1 : 0;
-      reopen = setTimeout(() => {
-        reopen = undefined;
-        open();
-      }, reopenDelayMs(failures));
+      reopen = setTimeout(
+        () => {
+          reopen = undefined;
+          open();
+        },
+        quick ? Math.random() * QUICK_REOPEN_MS : reopenDelayMs(failures),
+      );
     };
 
     const open = () => {
@@ -132,12 +143,16 @@ export function useLiveChannel(handlers: LiveHandlers): void {
         const removed = parse<{ entry_ids: string[] }>(event as MessageEvent);
         if (removed) latest.current.onFeedRemoved?.(removed.entry_ids);
       });
-      // `bye` (max-life, session-ended, restarting) after a `hello` is a healthy end:
-      // back after the cohort jitter. Any error — including the relay's 204 "no
-      // channel" and the relay ending at its own lifetime — and a `bye` before any
+      // `bye` after a `hello` is a healthy end: `max-life` (from `webapi`, or from the
+      // relay at its own lifetime) back within 1 s, the others after the cohort jitter.
+      // Any error — including the relay's 204 "no channel" — and a `bye` before any
       // `hello` are failures: back after the growing back-off. The browser's own
       // reconnect is not relied on: it would neither jitter nor back off.
-      channel.addEventListener('bye', () => scheduleReopen(serverTime === null));
+      channel.addEventListener('bye', (event) => {
+        const bye = parse<{ reason?: string }>(event as MessageEvent);
+        const healthy = serverTime !== null;
+        scheduleReopen(!healthy, healthy && bye?.reason === 'max-life');
+      });
       channel.addEventListener('error', () => scheduleReopen(true));
     };
 

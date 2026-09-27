@@ -40,8 +40,28 @@ export interface LiveHandlers {
   onFeedRemoved?: (entryIds: string[]) => void;
 }
 
-/** A reopen waits 0–20 s, so a cohort closed together does not return together (PERF-M3/M11). */
-const REOPEN_JITTER_MS = 20_000;
+/** A healthy reopen waits 0–20 s, so a cohort closed together does not return together (PERF-M3/M11). */
+export const REOPEN_JITTER_MS = 20_000;
+/**
+ * Back-off after a FAILED open (FR-005, plan M11, SR-M1): `base × 2^failures`, capped,
+ * drawn from its upper half, never below the floor. A persistent refusal — the relay's
+ * 204 "no channel" for an ended session, `realtime-capacity`, a subscriber-loss close —
+ * then retries every few seconds at first and once a minute at worst, never at ~10 s for
+ * ever.
+ */
+export const REOPEN_BACKOFF = { baseMs: 2_000, floorMs: 3_000, capMs: 60_000 } as const;
+
+/**
+ * Milliseconds before the next open. `failures` counts CONSECUTIVE failed opens (an
+ * `error`, or a `bye` before any `hello`); `0` means the last channel was healthy and
+ * ended by `bye` — the plain cohort jitter, uniform in [0, 20 000).
+ */
+export function reopenDelayMs(failures: number, random: () => number = Math.random): number {
+  if (failures <= 0) return random() * REOPEN_JITTER_MS;
+  const { baseMs, floorMs, capMs } = REOPEN_BACKOFF;
+  const ceiling = Math.min(baseMs * 2 ** failures, capMs);
+  return Math.max(floorMs, ceiling * (0.5 + 0.5 * random()));
+}
 /** Design M7 — a balance older than this before `hello` predates the re-read. */
 const STALE_BEFORE_HELLO_MS = 2_000;
 
@@ -65,15 +85,18 @@ export function useLiveChannel(handlers: LiveHandlers): void {
     let reopen: ReturnType<typeof setTimeout> | undefined;
     let serverTime: number | null = null;
     let disposed = false;
+    /** Consecutive failed opens; reset by `hello`. */
+    let failures = 0;
 
-    const scheduleReopen = () => {
+    const scheduleReopen = (failed: boolean) => {
       source?.close();
       source = null;
       if (disposed || reopen !== undefined) return;
+      failures = failed ? failures + 1 : 0;
       reopen = setTimeout(() => {
         reopen = undefined;
         open();
-      }, Math.random() * REOPEN_JITTER_MS);
+      }, reopenDelayMs(failures));
     };
 
     const open = () => {
@@ -86,6 +109,7 @@ export function useLiveChannel(handlers: LiveHandlers): void {
         const hello = parse<LiveHello>(event as MessageEvent);
         if (!hello) return;
         serverTime = hello.server_time;
+        failures = 0;
         latest.current.onOpen?.(hello);
       });
       channel.addEventListener('balance', (event) => {
@@ -108,11 +132,13 @@ export function useLiveChannel(handlers: LiveHandlers): void {
         const removed = parse<{ entry_ids: string[] }>(event as MessageEvent);
         if (removed) latest.current.onFeedRemoved?.(removed.entry_ids);
       });
-      // `bye` (max-life, session-ended, restarting) and any error — including the
-      // relay's 204 "no channel" — close and come back after the jitter. The
-      // browser's own reconnect is not relied on: it would not jitter.
-      channel.addEventListener('bye', scheduleReopen);
-      channel.addEventListener('error', scheduleReopen);
+      // `bye` (max-life, session-ended, restarting) after a `hello` is a healthy end:
+      // back after the cohort jitter. Any error — including the relay's 204 "no
+      // channel" and the relay ending at its own lifetime — and a `bye` before any
+      // `hello` are failures: back after the growing back-off. The browser's own
+      // reconnect is not relied on: it would neither jitter nor back off.
+      channel.addEventListener('bye', () => scheduleReopen(serverTime === null));
+      channel.addEventListener('error', () => scheduleReopen(true));
     };
 
     open();

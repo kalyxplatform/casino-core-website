@@ -2,12 +2,13 @@
 
 import { useContext, useEffect, useReducer, useState } from 'react';
 import { LiveFeedContext } from '@/components/LiveBalances';
-import { applyFeed, relativeTime } from '@/lib/feed';
+import { applyFeed, FEED_SHOWN, relativeTime } from '@/lib/feed';
 import { currencyLabel, formatBalance } from '@/lib/money';
 import { useLiveChannel, type LiveFeedEntry } from '@/lib/useLiveChannel';
 
 /**
- * The brand's latest bets and wins (backend feature 006, US2 — FR-030 – FR-037).
+ * The brand's latest bets and wins (backend feature 006, US2 + US3 — FR-030 – FR-037).
+ * Two tabs over one list: "Latest" and "Winners" (the same entries, wins only).
  *
  * Inside a `LiveBalancesProvider` (`/games`, `/account`) it reads the provider's
  * feed, so the page keeps ONE live channel. Outside one (`/login`, signed out) it
@@ -44,10 +45,29 @@ function useNow(intervalMs = 15_000): number {
   return now;
 }
 
+type FeedTab = 'latest' | 'winners';
+
+const TABS: { id: FeedTab; label: string; empty: string }[] = [
+  { id: 'latest', label: 'Latest', empty: 'No bets yet.' },
+  { id: 'winners', label: 'Winners', empty: 'No wins yet.' },
+];
+
+/**
+ * The rows a tab shows (FR-034). "Latest" is the newest {@link FEED_SHOWN} of the
+ * 50 kept (`FEED_LENGTH`); "Winners" filters ALL kept to wins, then shows at most
+ * {@link FEED_SHOWN} — fewer when fewer exist (A-004). No filter on amount: the
+ * listener already drops a zero amount.
+ */
+function rowsOf(entries: LiveFeedEntry[], tab: FeedTab): LiveFeedEntry[] {
+  const pool = tab === 'winners' ? entries.filter((entry) => entry.kind === 'win') : entries;
+  return pool.slice(0, FEED_SHOWN);
+}
+
 function FeedPanel({ entries }: { entries: LiveFeedEntry[] }) {
   const now = useNow();
-  // The "Winners" tab arrives with backend T053 (its test, T052, first): the same
-  // entries filtered to wins. Until then the tab list holds one tab.
+  const [tab, setTab] = useState<FeedTab>('latest');
+  const active = TABS.find((t) => t.id === tab) ?? TABS[0];
+  const rows = rowsOf(entries, tab);
   return (
     <section aria-labelledby="bet-feed-heading" className="rounded-xl border border-edge bg-surface">
       <div className="flex items-center justify-between gap-4 border-b border-edge px-4 py-3">
@@ -55,23 +75,33 @@ function FeedPanel({ entries }: { entries: LiveFeedEntry[] }) {
           Live activity
         </h2>
         <div role="tablist" aria-label="Feed" className="flex gap-1">
-          <button
-            type="button"
-            role="tab"
-            aria-selected="true"
-            className="rounded-md bg-surface-raised px-2.5 py-1 text-xs font-medium text-ink"
-          >
-            Latest
-          </button>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`bet-feed-tab-${t.id}`}
+              aria-selected={t.id === tab}
+              aria-controls="bet-feed-panel"
+              onClick={() => setTab(t.id)}
+              className={
+                t.id === tab
+                  ? 'rounded-md bg-surface-raised px-2.5 py-1 text-xs font-medium text-ink'
+                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-ink-muted hover:text-ink'
+              }
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div role="tabpanel">
-        {entries.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-ink-muted">No bets yet.</p>
+      <div role="tabpanel" id="bet-feed-panel" aria-labelledby={`bet-feed-tab-${tab}`}>
+        {rows.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-ink-muted">{active.empty}</p>
         ) : (
           <ul className="divide-y divide-edge">
-            {entries.map((entry) => (
+            {rows.map((entry) => (
               <FeedRow key={entry.entry_id} entry={entry} now={now} />
             ))}
           </ul>

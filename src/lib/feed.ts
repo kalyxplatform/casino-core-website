@@ -9,12 +9,15 @@ import type { LiveFeedEntry } from '@/lib/useLiveChannel';
  * - A live entry is PREPENDED, unless its `entry_id` is already shown (design M16:
  *   the snapshot and a live frame can carry the same entry around a reopen).
  * - A removal drops every listed id (a reversed round).
- * - Never more than the backend keeps: 50, newest first.
+ * - Never more than the backend keeps: 50, newest first. The tabs SHOW at most 20
+ *   (FR-034); the state keeps 50 so "Winners" filters all of them.
  *
  * The component never filters on amount: the listener already drops a zero-amount
  * entry, and a second rule here would drift from the first.
  */
 export const FEED_LENGTH = 50;
+/** What a tab shows (FR-034): the newest 20 — of all kept for "Latest", of the wins for "Winners". */
+export const FEED_SHOWN = 20;
 
 export type FeedAction =
   | { type: 'snapshot'; entries: LiveFeedEntry[] }

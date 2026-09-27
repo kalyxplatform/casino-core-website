@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { launchAction } from '@/actions/games';
 import { emptyLaunch } from '@/lib/launch-state';
 import type { AccountBalance, GameSummary } from '@/lib/webapi';
-import { currencyLabel, formatBalance } from '@/lib/money';
+import { currencyLabel } from '@/lib/money';
+import { LiveAvailable } from '@/components/LiveBalances';
 import { Alert } from '@/components/Alert';
 import { SubmitButton } from '@/components/SubmitButton';
 import { GameFrame } from './GameFrame';
@@ -136,7 +137,7 @@ export function GameLobby({
                     />
                     <span className="font-medium">{currencyLabel(code)}</span>{' '}
                     <span className="tabular-nums">
-                      {formatBalance(account.available_balance, code)}
+                      <LiveAvailable account={account} />
                     </span>
                   </label>
                 );

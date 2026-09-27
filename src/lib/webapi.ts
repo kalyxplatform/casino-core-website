@@ -329,3 +329,42 @@ export const startCheckout = (token: string, packageId: number) =>
 
 export const readOrder = (token: string, reference: string) =>
   request<StoreOrder>(`/store/orders/${encodeURIComponent(reference)}`, { token });
+
+/* ---------------------------------------------------------------- realtime */
+
+/**
+ * Backend feature 006 — open `webapi`'s live stream, server to server.
+ *
+ * `GET /realtime/stream` with the session token, or `GET /realtime/feed-stream`
+ * with the brand key alone when there is no session (the anonymous feed; the
+ * backend adds that route with its US2). The request carries EXACTLY three
+ * headers this server constructs — `Accept`, `X-Brand-Key` and, for a player,
+ * `Authorization` — and none of the browser's: a browser must not be able to
+ * smuggle its own credential into a server-to-server call (security review
+ * SEC-M14). Nothing here logs the address or a body.
+ *
+ * Returns the upstream `Response` for the relay to pipe, or `null` for a
+ * transport failure or a missing brand key. A refusal is NOT a transport
+ * failure: `webapi` answers it as JSON at HTTP 200, and the relay tells the two
+ * apart by `Content-Type`.
+ */
+export async function openRealtimeStream(
+  token: string | null,
+  signal: AbortSignal,
+): Promise<Response | null> {
+  const key = brandKey();
+  if (!key) return null;
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+    'X-Brand-Key': key,
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    return await fetch(
+      `${webapiBaseUrl()}${token ? '/realtime/stream' : '/realtime/feed-stream'}`,
+      { headers, cache: 'no-store', signal },
+    );
+  } catch {
+    return null;
+  }
+}

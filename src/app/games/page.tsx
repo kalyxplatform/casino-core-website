@@ -5,6 +5,7 @@ import { ResponderCodes } from '@/lib/webapi';
 import { currencyLabel } from '@/lib/money';
 import { AppShell } from '@/components/AppShell';
 import { SkeletonBar, SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
+import { LiveBalancesProvider } from '@/components/LiveBalances';
 import { GameLobby } from './GameLobby';
 
 /**
@@ -31,9 +32,12 @@ export default async function GamesPage() {
 
   return (
     <AppShell player={session.player} current="games">
-      <Suspense fallback={<LobbyFallback />}>
-        <Lobby token={session.token} />
-      </Suspense>
+      {/* Backend feature 006: the header above a game and the picker move as rounds settle. */}
+      <LiveBalancesProvider>
+        <Suspense fallback={<LobbyFallback />}>
+          <Lobby token={session.token} />
+        </Suspense>
+      </LiveBalancesProvider>
     </AppShell>
   );
 }

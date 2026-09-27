@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { currencyLabel, formatBalance } from '@/lib/money';
+import { currencyLabel } from '@/lib/money';
+import { LiveAvailable } from '@/components/LiveBalances';
 import type { AccountBalance } from '@/lib/webapi';
 
 /**
@@ -56,7 +57,7 @@ export function GameFrame({
         {account && (
           <p className="rounded-full bg-surface-raised px-2.5 py-1 text-xs tabular-nums text-ink-muted">
             <span className="font-medium text-ink">
-              {formatBalance(account.available_balance, account.currency.code)}
+              <LiveAvailable account={account} />
             </span>{' '}
             {currencyLabel(account.currency.code)}
           </p>

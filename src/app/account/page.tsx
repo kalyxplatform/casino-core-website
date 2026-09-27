@@ -5,6 +5,7 @@ import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { AppShell } from '@/components/AppShell';
 import { BalancePanel } from '@/components/BalancePanel';
+import { LiveBalancesProvider } from '@/components/LiveBalances';
 import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
 
 /**
@@ -52,9 +53,12 @@ export default async function AccountPage() {
       </div>
 
       <div className="mt-4">
-        <Suspense fallback={<BalanceFallback />}>
-          <Balance token={session.token} />
-        </Suspense>
+        {/* Backend feature 006: the balance follows the live channel. */}
+        <LiveBalancesProvider>
+          <Suspense fallback={<BalanceFallback />}>
+            <Balance token={session.token} />
+          </Suspense>
+        </LiveBalancesProvider>
       </div>
     </AppShell>
   );

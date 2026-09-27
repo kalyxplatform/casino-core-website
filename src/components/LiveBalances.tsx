@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useReducer, useRef, useState, type ReactNode } from 'react';
 import { refreshBalanceAction } from '@/actions/realtime';
+import { applyFeed } from '@/lib/feed';
 import { currencyLabel, formatBalance } from '@/lib/money';
-import { useLiveChannel, type LiveBalance } from '@/lib/useLiveChannel';
+import { useLiveChannel, type LiveBalance, type LiveFeedEntry } from '@/lib/useLiveChannel';
 
 /**
  * Every balance on a page, kept live together (backend feature 006, FR-001 – FR-005).
@@ -16,6 +17,9 @@ import { useLiveChannel, type LiveBalance } from '@/lib/useLiveChannel';
  * On every channel open the balance is re-read (FR-004). The re-read carries no
  * ordering, so it only fills a currency that no event has touched since the read
  * began — an event that raced ahead of it is newer than what it read.
+ *
+ * The same channel carries the brand's feed (US2): the provider keeps it too, so a
+ * `BetFeed` inside it shares the page's ONE `EventSource` instead of opening a second.
  */
 export interface LiveAmounts {
   available_balance: string;
@@ -27,6 +31,9 @@ interface Entry extends LiveAmounts {
 }
 
 const LiveBalancesContext = createContext<Map<string, Entry> | null>(null);
+
+/** The feed entries of the provider's channel, newest first; `null` outside a provider. */
+export const LiveFeedContext = createContext<LiveFeedEntry[] | null>(null);
 
 const newer = (a: LiveBalance['ordering'], b: LiveBalance['ordering'] | null) =>
   b === null || a.committed_at > b.committed_at || (a.committed_at === b.committed_at && a.sequence >= b.sequence);
@@ -71,9 +78,21 @@ export function LiveBalancesProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useLiveChannel({ onOpen: () => void reread(), onBalance: apply });
+  const [feed, dispatchFeed] = useReducer(applyFeed, []);
 
-  return <LiveBalancesContext.Provider value={balances}>{children}</LiveBalancesContext.Provider>;
+  useLiveChannel({
+    onOpen: () => void reread(),
+    onBalance: apply,
+    onFeedSnapshot: (entries) => dispatchFeed({ type: 'snapshot', entries }),
+    onFeed: (entry) => dispatchFeed({ type: 'entry', entry }),
+    onFeedRemoved: (entryIds) => dispatchFeed({ type: 'removed', entryIds }),
+  });
+
+  return (
+    <LiveBalancesContext.Provider value={balances}>
+      <LiveFeedContext.Provider value={feed}>{children}</LiveFeedContext.Provider>
+    </LiveBalancesContext.Provider>
+  );
 }
 
 /**

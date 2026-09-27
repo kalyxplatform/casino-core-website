@@ -6,6 +6,7 @@ import { currencyLabel } from '@/lib/money';
 import { AppShell } from '@/components/AppShell';
 import { SkeletonBar, SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
 import { LiveBalancesProvider } from '@/components/LiveBalances';
+import { BetFeed } from '@/components/BetFeed';
 import { GameLobby } from './GameLobby';
 
 /**
@@ -37,6 +38,10 @@ export default async function GamesPage() {
         <Suspense fallback={<LobbyFallback />}>
           <Lobby token={session.token} />
         </Suspense>
+        {/* US2: the brand's latest bets and wins, on the provider's one channel. */}
+        <div className="mt-8">
+          <BetFeed />
+        </div>
       </LiveBalancesProvider>
     </AppShell>
   );

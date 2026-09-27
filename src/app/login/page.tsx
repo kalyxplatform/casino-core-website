@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { readSession } from '@/lib/session';
+import { BetFeed } from '@/components/BetFeed';
 import { LoginForm } from './LoginForm';
 
 export default async function LoginPage(props: PageProps<'/login'>) {
@@ -22,6 +23,11 @@ export default async function LoginPage(props: PageProps<'/login'>) {
           Create one
         </Link>
       </p>
+
+      {/* Backend feature 006: the brand's latest bets and wins, signed out too. */}
+      <div className="mt-10">
+        <BetFeed />
+      </div>
     </main>
   );
 }

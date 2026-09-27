@@ -6,6 +6,7 @@ import { ResponderCodes } from '@/lib/webapi';
 import { AppShell } from '@/components/AppShell';
 import { BalancePanel } from '@/components/BalancePanel';
 import { LiveBalancesProvider } from '@/components/LiveBalances';
+import { BetFeed } from '@/components/BetFeed';
 import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
 
 /**
@@ -58,6 +59,10 @@ export default async function AccountPage() {
           <Suspense fallback={<BalanceFallback />}>
             <Balance token={session.token} />
           </Suspense>
+          {/* US2: the brand's latest bets and wins, on the provider's one channel. */}
+          <div className="mt-8">
+            <BetFeed />
+          </div>
         </LiveBalancesProvider>
       </div>
     </AppShell>

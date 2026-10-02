@@ -6,8 +6,15 @@
  * exported from one throws when the module is evaluated — which `next build`
  * does not catch for a dynamic page, so the build passes and the page 500s.
  */
+import type { VerificationHint } from './verification';
+
 export interface LaunchState {
   error: string | null;
+  /**
+   * Set when the launch was refused for verification (backend feature 007): the
+   * lobby shows the next step and a link to `/verification` under the error.
+   */
+  verification: VerificationHint | null;
   /**
    * Revolver's launch address, for the player's own browser and nothing else.
    *
@@ -22,6 +29,7 @@ export interface LaunchState {
 
 export const emptyLaunch: LaunchState = {
   error: null,
+  verification: null,
   url: null,
   gameCode: null,
   currencyCode: null,

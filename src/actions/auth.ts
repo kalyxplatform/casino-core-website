@@ -4,6 +4,12 @@ import { redirect } from 'next/navigation';
 import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { clearSession, readSession, writeSession } from '@/lib/session';
+import {
+  REGISTRATION_DECLARATION_MISSING,
+  declarationFrom,
+  declarationValues,
+  type DeclarationValues,
+} from '@/lib/verification';
 
 /** What a form gets back. `null` means "nothing submitted yet". */
 export interface FormState {
@@ -31,21 +37,70 @@ function readableError(response: webapi.ApiResponse<unknown>, fallback: string):
   }
 }
 
-export async function registerAction(_previous: FormState, formData: FormData): Promise<FormState> {
+/**
+ * What the sign-up form gets back (backend feature 007 widened it).
+ *
+ * `declarationRequired` reopens the form WITH the identity fields when the backend
+ * says the brand needs them although the requirements route did not — it was
+ * unreachable, not deployed yet, or the policy changed in between. `values` is
+ * what the player typed (never the password), so that reopening loses nothing.
+ */
+export interface RegisterState extends FormState {
+  declarationRequired: boolean;
+  values: DeclarationValues & { email?: string; countryId?: string };
+}
+
+/** `under-age` (contracts §7): refused, and NO account was created. */
+const REGISTRATION_REFUSALS: Record<string, string> = {
+  'under-age':
+    'You are under the minimum age for this casino in your country, so no account was created.',
+};
+
+export async function registerAction(
+  previous: RegisterState,
+  formData: FormData,
+): Promise<RegisterState> {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
-  const countryId = Number(formData.get('countryId'));
+  const countryIdRaw = String(formData.get('countryId') ?? '');
+  const countryId = Number(countryIdRaw);
+  // The fieldset posts this marker only when it is on screen.
+  const declaring = formData.get('declare') === '1';
 
-  if (!email || !password) return { error: 'Enter an email address and a password.' };
-  if (!Number.isInteger(countryId) || countryId < 1) return { error: 'Choose a country.' };
+  const values = { ...declarationValues(formData), email, countryId: countryIdRaw };
+  const refuse = (error: string, declarationRequired = previous.declarationRequired) => ({
+    error,
+    declarationRequired,
+    values,
+  });
+
+  if (!email || !password) return refuse('Enter an email address and a password.');
+  if (!Number.isInteger(countryId) || countryId < 1) return refuse('Choose a country.');
+
+  let declaration: webapi.Declaration | undefined;
+  if (declaring) {
+    const parsed = declarationFrom(formData);
+    if ('error' in parsed) return refuse(parsed.error);
+    declaration = parsed.declaration;
+  }
 
   const registration = await webapi.register({
     email,
     password,
     country_id: countryId,
+    // Absent, not null, when not declaring: then the request is feature 001's byte for byte.
+    ...(declaration ? { declaration } : {}),
   });
   if (registration.code !== ResponderCodes.SUCCESS) {
-    return { error: readableError(registration, 'Registration could not be completed.') };
+    if (registration.message === REGISTRATION_DECLARATION_MISSING) {
+      return refuse(
+        'This casino needs your identity details to open an account. Fill them in below.',
+        true,
+      );
+    }
+    const refusal = REGISTRATION_REFUSALS[registration.message ?? ''];
+    if (refusal) return refuse(refusal);
+    return refuse(readableError(registration, 'Registration could not be completed.'));
   }
 
   // Registration does not return a session, so sign the new player straight in.

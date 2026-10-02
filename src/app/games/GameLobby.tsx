@@ -9,6 +9,7 @@ import { currencyLabel } from '@/lib/money';
 import { LiveAvailable } from '@/components/LiveBalances';
 import { Alert } from '@/components/Alert';
 import { SubmitButton } from '@/components/SubmitButton';
+import { VerificationRefusal } from '@/components/VerificationRefusal';
 import { GameFrame } from './GameFrame';
 
 const COARSE_POINTER = '(pointer: coarse)';
@@ -36,10 +37,17 @@ export function GameLobby({
   games,
   failed,
   accounts,
+  locked = false,
 }: {
   games: GameSummary[];
   failed: boolean;
   accounts: AccountBalance[];
+  /**
+   * The standing says the game action is closed (backend feature 007). Play stays
+   * a button — the launch route is the authority and answers with the reason — but
+   * says up front what will happen.
+   */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const [launch, startLaunch] = useActionState(launchAction, emptyLaunch);
@@ -103,6 +111,7 @@ export function GameLobby({
 
       <div className="mt-5 space-y-4">
         {launch.error && <Alert tone="error">{launch.error}</Alert>}
+        {launch.verification && <VerificationRefusal hint={launch.verification} />}
         {failed && <Alert tone="error">The games list could not be loaded right now.</Alert>}
 
         {accounts.length === 0 ? (
@@ -175,7 +184,7 @@ export function GameLobby({
 
               <div className="mt-4">
                 <SubmitButton pendingLabel="Opening…" variant="quiet">
-                  Play
+                  {locked ? 'Play (verification needed)' : 'Play'}
                 </SubmitButton>
               </div>
             </form>

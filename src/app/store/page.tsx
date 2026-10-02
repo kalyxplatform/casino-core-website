@@ -6,6 +6,9 @@ import { AppShell } from '@/components/AppShell';
 import { BalancePanel } from '@/components/BalancePanel';
 import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
 import { StoreFront } from './StoreFront';
+import { readStanding } from '@/lib/verification-server';
+import { noticeView } from '@/lib/verification';
+import { VerificationNotice } from '@/components/VerificationNotice';
 
 /**
  * The package catalogue.
@@ -73,15 +76,30 @@ async function Balance({ token }: { token: string }) {
 }
 
 async function Packages({ token }: { token: string }) {
-  const packages = await webapi.listPackages(token);
+  // Backend feature 007: read beside the catalogue, not after it. A 404/403 on the
+  // standing (a backend without the route) is "nothing required".
+  const [packages, standing] = await Promise.all([
+    webapi.listPackages(token),
+    readStanding(token),
+  ]);
 
   if (packages.code === ResponderCodes.FORBIDDEN) redirectToExpiredSession();
 
+  const verification = standing.status === 'standing' ? noticeView(standing.standing) : null;
+
   return (
-    <StoreFront
-      packages={packages.code === ResponderCodes.SUCCESS && packages.data ? packages.data : []}
-      failed={packages.code !== ResponderCodes.SUCCESS}
-    />
+    <>
+      {verification && (
+        <div className="mt-5">
+          <VerificationNotice view={verification} action="purchase" />
+        </div>
+      )}
+      <StoreFront
+        packages={packages.code === ResponderCodes.SUCCESS && packages.data ? packages.data : []}
+        failed={packages.code !== ResponderCodes.SUCCESS}
+        locked={verification?.closed.purchase ?? false}
+      />
+    </>
   );
 }
 

@@ -250,8 +250,16 @@ export interface CountryOption {
  * required, and `currency_id` is optional and ignored in social mode, so it is
  * not sent at all rather than sent as null.
  */
-export const register = (input: { email: string; password: string; country_id: number }) =>
-  request<never>('/registration', { method: 'POST', body: input });
+export const register = (input: {
+  email: string;
+  password: string;
+  country_id: number;
+  /**
+   * Backend feature 007, contracts §7: OPTIONAL. Sent only when the form collected
+   * it; without it the request is feature 001's byte for byte.
+   */
+  declaration?: Declaration;
+}) => request<never>('/registration', { method: 'POST', body: input });
 
 /** `POST /auth/login`. `identifier`, not `email` — and no `brand_id`. */
 export const login = (input: { identifier: string; password: string }) =>
@@ -329,6 +337,117 @@ export const startCheckout = (token: string, packageId: number) =>
 
 export const readOrder = (token: string, reference: string) =>
   request<StoreOrder>(`/store/orders/${encodeURIComponent(reference)}`, { token });
+
+/* ------------------------------------------------------------ verification */
+
+/**
+ * Backend feature 007 — a brand's verification (KYC) policy, as the player sees it.
+ * Shapes mirror `specs/007-flexible-kyc-policy/contracts/*.json` key for key.
+ *
+ * Three rules from that feature's security review (SEC-M10) bind everything that
+ * reads these:
+ *
+ *  - `demand_reason`, `rejection_reason` and rule names are OPERATOR-written text.
+ *    They are rendered as React text children, never as markup — nothing in this
+ *    app uses `dangerouslySetInnerHTML`, and a test pins that.
+ *  - The standing and the declaration are never cached: every route below is
+ *    `no-store` (no `revalidate`), because both are one player's and Next's data
+ *    cache is shared.
+ *  - Neither is ever logged, nor put in an address. `request()` logs nothing, and
+ *    nothing here adds a line.
+ *
+ * The standing also carries `declared` — the player's own legal name, date of
+ * birth and address. A page reads what it needs from it on the server; it is never
+ * handed whole to a client component (`lib/verification.ts`).
+ */
+
+/** `contracts/declaration-request.json` — the §2 body, and §7's `declaration`. */
+export interface Declaration {
+  first_name: string;
+  last_name: string;
+  /** `YYYY-MM-DD`. */
+  date_of_birth: string;
+  address: {
+    line1: string;
+    line2: string | null;
+    city: string;
+    postal_code: string;
+    country_id: number;
+  };
+  nationality_country_id: number;
+}
+
+export type VerificationMode = 'suggested' | 'required';
+
+/** `trigger` of one `asking[]` entry. `amount` is the RULE's threshold — a decimal string, never money. */
+export interface VerificationTrigger {
+  kind: 'registration' | 'bets' | 'purchases' | 'withdrawal' | 'days' | 'operator' | string;
+  count?: number;
+  amount?: string;
+  currency?: string;
+}
+
+export interface VerificationAsking {
+  rule: string;
+  trigger: VerificationTrigger;
+  level: number;
+  mode: VerificationMode;
+  required_from: string | null;
+  dismissed: boolean;
+}
+
+export type ActionVerdict = { open: true } | { open: false; reason: string };
+
+/** `contracts/standing-*.json` — §1. */
+export interface VerificationStanding {
+  level: number;
+  state: 'none' | 'declared' | 'submitted' | 'verified' | 'enhanced' | 'rejected' | 'expired';
+  next_step: 'declare' | 'submit' | 'wait' | 'none';
+  declared: Declaration | null;
+  asking: VerificationAsking[];
+  actions: { game: ActionVerdict; purchase: ActionVerdict; withdrawal: ActionVerdict };
+  rejection_reason: string | null;
+  demand_reason: string | null;
+}
+
+/** `contracts/registration-requirements-*.json` — §4. */
+export interface RegistrationRequirements {
+  declaration_required: boolean;
+  minimum_age: number;
+  /** ISO-2 country code → minimum age, only where it differs from `minimum_age`. */
+  country_minimum_age: Record<string, number>;
+}
+
+/**
+ * `GET /verification/registration-requirements`. PUBLIC: the brand comes from
+ * `X-Brand-Key` alone, and no query parameter is sent (a `brand_id` would be a 400).
+ *
+ * Not cached: it is the same for every visitor of this brand, but an operator's
+ * policy change should reach the next sign-up, and a cached 404 from before the
+ * backend deployed would outlive the deploy.
+ */
+export const getRegistrationRequirements = () =>
+  request<RegistrationRequirements>('/verification/registration-requirements');
+
+/** `GET /verification` — the signed-in player's standing. Never cached. */
+export const getVerification = (token: string) =>
+  request<VerificationStanding>('/verification', { token });
+
+/** `POST /verification/declaration`. The body is EXACTLY the declaration. The answer is the new standing. */
+export const declareIdentity = (token: string, declaration: Declaration) =>
+  request<VerificationStanding>('/verification/declaration', {
+    method: 'POST',
+    token,
+    body: declaration,
+  });
+
+/** `POST /verification/dismissals`. The body is EXACTLY `{ rule }`. The answer is the new standing. */
+export const dismissSuggestion = (token: string, rule: string) =>
+  request<VerificationStanding>('/verification/dismissals', {
+    method: 'POST',
+    token,
+    body: { rule },
+  });
 
 /* ---------------------------------------------------------------- realtime */
 

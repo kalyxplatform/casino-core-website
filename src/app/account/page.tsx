@@ -8,6 +8,9 @@ import { BalancePanel } from '@/components/BalancePanel';
 import { LiveBalancesProvider } from '@/components/LiveBalances';
 import { BetFeed } from '@/components/BetFeed';
 import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
+import { VerificationNotice } from '@/components/VerificationNotice';
+import { readStanding } from '@/lib/verification-server';
+import { noticeHasContent, noticeView } from '@/lib/verification';
 
 /**
  * Profile and balance.
@@ -35,6 +38,12 @@ export default async function AccountPage() {
 
   return (
     <AppShell player={session.player} current="account">
+      {/* Backend feature 007. Streams on its own: nothing waits for it, and it renders
+          nothing at all when nothing is asked (or the backend lacks the route). */}
+      <Suspense fallback={null}>
+        <Verification token={session.token} />
+      </Suspense>
+
       <h1 className="text-xl font-semibold tracking-tight">Profile</h1>
 
       <dl className="mt-4 divide-y divide-edge overflow-hidden rounded-xl border border-edge bg-surface">
@@ -88,6 +97,18 @@ async function Balance({ token }: { token: string }) {
   }
 
   return <BalancePanel balances={balance.data} />;
+}
+
+async function Verification({ token }: { token: string }) {
+  const standing = await readStanding(token);
+  if (standing.status !== 'standing') return null;
+  const view = noticeView(standing.standing);
+  if (!noticeHasContent(view)) return null;
+  return (
+    <div className="mb-6">
+      <VerificationNotice view={view} />
+    </div>
+  );
 }
 
 function BalanceFallback() {

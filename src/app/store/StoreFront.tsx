@@ -7,6 +7,7 @@ import type { StorePackage } from '@/lib/webapi';
 import { currencyLabel, formatAmount, formatBalance } from '@/lib/money';
 import { SubmitButton } from '@/components/SubmitButton';
 import { Alert } from '@/components/Alert';
+import { VerificationRefusal } from '@/components/VerificationRefusal';
 
 /**
  * The catalogue, and the purchase it starts.
@@ -27,7 +28,16 @@ import { Alert } from '@/components/Alert';
  * the backend from the brand's `WebsiteUrl`. So the purchase is an ordinary round trip
  * and there is nothing to watch from here — the return page reports the outcome.
  */
-export function StoreFront({ packages, failed }: { packages: StorePackage[]; failed: boolean }) {
+export function StoreFront({
+  packages,
+  failed,
+  locked = false,
+}: {
+  packages: StorePackage[];
+  failed: boolean;
+  /** The standing says purchases are closed (backend feature 007); checkout is still the authority. */
+  locked?: boolean;
+}) {
   const [checkout, startCheckout] = useActionState(checkoutAction, emptyCheckout);
 
   // A full-page navigation, not `router.push`: the target is a different origin.
@@ -56,6 +66,7 @@ export function StoreFront({ packages, failed }: { packages: StorePackage[]; fai
   return (
     <div className="mt-5 space-y-4">
       {checkout.error && <Alert tone="error">{checkout.error}</Alert>}
+      {checkout.verification && <VerificationRefusal hint={checkout.verification} />}
       {failed && <Alert tone="error">The store could not be loaded right now.</Alert>}
 
       {!failed && packages.length === 0 && (
@@ -107,7 +118,7 @@ export function StoreFront({ packages, failed }: { packages: StorePackage[]; fai
 
             <div className="mt-4">
               <SubmitButton pendingLabel="Starting…" variant="quiet">
-                Buy
+                {locked ? 'Buy (verification needed)' : 'Buy'}
               </SubmitButton>
             </div>
           </form>

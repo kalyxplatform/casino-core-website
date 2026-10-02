@@ -7,7 +7,7 @@ React 19, Tailwind v4, TypeScript, pnpm. Deployed on Vercel at
 ## What this is right now
 
 A **deliberately small, real** player area, rebuilt from scratch on 2026-09-19 after the
-previous mock site was deleted. Four things work, end to end, against the live
+previous mock site was deleted. Five things work, end to end, against the live
 development API — no mocks, no fabricated data, no static fixtures:
 
 1. **Register / sign in / sign out** — `POST /registration`, `POST /auth/login`, `POST /auth/logout`
@@ -19,6 +19,12 @@ development API — no mocks, no fabricated data, no static fixtures:
    `feature/004-revolver-game-provider` branch and **`GET /games` is still a hard 404 on the
    development API**, so until that deploys the lobby renders and says the games list could
    not be loaded. `rollout.md` puts this page last on purpose
+
+5. **Verification (KYC) standing** — backend feature 007: `GET /verification/registration-requirements`
+   shapes the sign-up form, `GET /verification` drives a dismissable banner (suggested rules) and
+   a blocking panel (required rules) on Profile, Games and Get coins, `/verification` holds the
+   declaration form, and Play / Buy refused with `verification-required` show the next step.
+   See "Verification" below
 
 VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
 invented data. Add them back only against real endpoints — which is how the games page came
@@ -139,15 +145,19 @@ src/
     money.ts           # decimal-string formatting; no arithmetic, ever
     checkout-state.ts  # shared with the action — see the 'use server' gotcha below
     launch-state.ts    # same reason, for the game launch
+    verification.ts    # 007: pure readers of the standing/requirements; strips `declared`
+    verification-server.ts # 007: readStanding(), refusalHint() — server-only helpers
   actions/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
     games.ts           # game launch
+    verification.ts    # 007: declare identity, dismiss a suggestion
   app/
     login/ register/ account/
     store/            # catalogue; starts checkout and navigates to the provider
     store/return/     # where the provider returns the player; polls while pending
     games/            # lobby; launches into an iframe on the same page
+    verification/     # 007: the player's standing and the declaration form
   components/          # AppShell, BalancePanel, SubmitButton, Alert
 ```
 
@@ -175,6 +185,23 @@ offers the tab as a fallback rather than trying to detect the failure.
 
 `exit_url` on the launch address is `brand.WebsiteUrl`, so the game's own exit button
 navigates the **frame** back to this site rather than closing it. Use "Close game".
+
+## Verification (backend feature 007)
+
+Contracts: `core/casino-core-backend/specs/007-flexible-kyc-policy/contracts/README.md` §1–§7.
+
+- **A `404` or `403` on any `/verification*` read is "nothing required"** (`standingFrom`,
+  `requirementsFrom`). The site may deploy before `webapi` serves the routes; the launch and
+  checkout gates are the authority either way. Pinned in `src/actions/verification.test.ts`.
+- **`POST /registration` is the authority on the declaration.** If the requirements route could
+  not be read and the brand does require one, the backend answers `400 declaration is required
+  for this brand` and `registerAction` reopens the form with the identity fields.
+- **Operator text is text** (backend SEC-M10): `demand_reason`, `rejection_reason` and rule names
+  render as React text children. Nothing in `src/` uses `dangerouslySetInnerHTML`; a test scans
+  for it.
+- **The standing and the declaration are never cached or logged** — every verification call is
+  `no-store`, nothing writes a log line — and the standing's `declared` block (the player's legal
+  identity) never reaches a client component: pages pass `noticeView(...)`, which drops it.
 
 ## Gotchas
 

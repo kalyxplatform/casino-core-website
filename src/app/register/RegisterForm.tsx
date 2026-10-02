@@ -1,15 +1,38 @@
 'use client';
 
-import { useActionState } from 'react';
-import { registerAction, type FormState } from '@/actions/auth';
+import { useActionState, useState } from 'react';
+import { registerAction, type RegisterState } from '@/actions/auth';
 import type { CountryOption } from '@/lib/webapi';
+import { minimumAgeFor, type SignUpRequirements } from '@/lib/verification';
 import { SubmitButton } from '@/components/SubmitButton';
 import { Alert } from '@/components/Alert';
+import { DeclarationFields } from '@/components/DeclarationFields';
 
-const initialState: FormState = { error: null };
+const initialState: RegisterState = { error: null, declarationRequired: false, values: {} };
 
-export function RegisterForm({ countries }: { countries: CountryOption[] }) {
+/**
+ * Sign-up, shaped by the brand's verification policy (backend feature 007, §4/§7).
+ *
+ * The identity fields appear when the requirements route said a declaration is
+ * required, or when `POST /registration` refused for want of one. The age shown is
+ * the selected country's minimum where the brand sets one; the backend's age check
+ * is the authority, this only says it up front.
+ */
+export function RegisterForm({
+  countries,
+  requirements,
+}: {
+  countries: CountryOption[];
+  requirements: SignUpRequirements;
+}) {
   const [state, formAction] = useActionState(registerAction, initialState);
+  const [countryId, setCountryId] = useState('');
+  const declaring = requirements.declarationRequired || state.declarationRequired;
+
+  const selectedCountry = countries.find(
+    (country) => String(country.id) === (countryId || state.values.countryId),
+  );
+  const minimumAge = minimumAgeFor(requirements, selectedCountry?.iso_code2);
 
   return (
     <form action={formAction} className="mt-8 space-y-4">
@@ -29,6 +52,7 @@ export function RegisterForm({ countries }: { countries: CountryOption[] }) {
           autoComplete="email"
           required
           placeholder="player@example.com"
+          defaultValue={state.values.email ?? ''}
           className="field"
         />
       </div>
@@ -58,7 +82,14 @@ export function RegisterForm({ countries }: { countries: CountryOption[] }) {
         <label htmlFor="countryId" className="block text-sm font-medium">
           Country
         </label>
-        <select id="countryId" name="countryId" required defaultValue="" className="field">
+        <select
+          id="countryId"
+          name="countryId"
+          required
+          defaultValue={state.values.countryId ?? ''}
+          onChange={(event) => setCountryId(event.target.value)}
+          className="field"
+        >
           <option value="" disabled>
             Select a country
           </option>
@@ -69,6 +100,23 @@ export function RegisterForm({ countries }: { countries: CountryOption[] }) {
           ))}
         </select>
       </div>
+
+      {declaring && (
+        <fieldset className="space-y-4 rounded-xl border border-edge bg-surface p-4">
+          <legend className="px-1 text-sm font-medium">Your identity</legend>
+          <p className="text-xs text-ink-muted">
+            This casino asks for your legal details when you sign up, as shown on your identity
+            document.
+            {minimumAge !== null && <> You must be at least {minimumAge} years old.</>}
+          </p>
+          <input type="hidden" name="declare" value="1" />
+          <DeclarationFields
+            countries={countries}
+            defaults={state.values}
+            defaultCountryId={countryId || state.values.countryId}
+          />
+        </fieldset>
+      )}
 
       <SubmitButton pendingLabel="Creating account…">Create account</SubmitButton>
     </form>

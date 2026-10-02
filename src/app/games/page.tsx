@@ -8,6 +8,9 @@ import { SkeletonBar, SkeletonCard, SkeletonRegion } from '@/components/Skeleton
 import { LiveBalancesProvider } from '@/components/LiveBalances';
 import { BetFeed } from '@/components/BetFeed';
 import { GameLobby } from './GameLobby';
+import { readStanding } from '@/lib/verification-server';
+import { noticeView } from '@/lib/verification';
+import { VerificationNotice } from '@/components/VerificationNotice';
 
 /**
  * The lobby: the games a signed-in player may open, and the balances they play with.
@@ -48,11 +51,15 @@ export default async function GamesPage() {
 }
 
 async function Lobby({ token }: { token: string }) {
-  const [games, balance, currencies] = await Promise.all([
+  // Backend feature 007: the standing rides in the same `Promise.all`, so it costs
+  // no round trip. A 404/403 on it (a backend without the route) is "nothing required".
+  const [games, balance, currencies, standing] = await Promise.all([
     webapi.listGames(token),
     webapi.getBalance(token),
     webapi.listCurrencies(),
+    readStanding(token),
   ]);
+  const verification = standing.status === 'standing' ? noticeView(standing.standing) : null;
 
   if (games.code === ResponderCodes.FORBIDDEN || balance.code === ResponderCodes.FORBIDDEN) {
     redirectToExpiredSession();
@@ -95,11 +102,19 @@ async function Lobby({ token }: { token: string }) {
       : accounts;
 
   return (
-    <GameLobby
-      games={games.code === ResponderCodes.SUCCESS && games.data ? games.data.games : []}
-      failed={games.code !== ResponderCodes.SUCCESS}
-      accounts={playable}
-    />
+    <>
+      {verification && (
+        <div className="mb-5">
+          <VerificationNotice view={verification} action="game" />
+        </div>
+      )}
+      <GameLobby
+        games={games.code === ResponderCodes.SUCCESS && games.data ? games.data.games : []}
+        failed={games.code !== ResponderCodes.SUCCESS}
+        accounts={playable}
+        locked={verification?.closed.game ?? false}
+      />
+    </>
   );
 }
 

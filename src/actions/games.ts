@@ -5,6 +5,8 @@ import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { readSession } from '@/lib/session';
 import { emptyLaunch, type LaunchState } from '@/lib/launch-state';
+import { VERIFICATION_REFUSALS } from '@/lib/verification';
+import { refusalHint } from '@/lib/verification-server';
 
 /**
  * `POST /games/launch` answers refusals as slugs meant for whoever is reading the
@@ -20,6 +22,8 @@ import { emptyLaunch, type LaunchState } from '@/lib/launch-state';
 const LAUNCH_ERRORS: Record<string, string> = {
   'launch-not-available': 'That game cannot be opened in this currency right now.',
   'games-not-configured': 'Games are not switched on in this environment yet.',
+  // Backend feature 007, contracts §5: refused BEFORE any token is minted.
+  ...VERIFICATION_REFUSALS,
 };
 
 /** The launcher builds a different game for a touch screen; the client tells us which. */
@@ -52,6 +56,14 @@ export async function launchAction(
   // gone, so a 403 from any route means signed out — never a game problem.
   if (launch.code === ResponderCodes.FORBIDDEN) redirect('/login');
 
+  if (launch.message === 'verification-required') {
+    return {
+      ...emptyLaunch,
+      error: LAUNCH_ERRORS['verification-required'],
+      verification: await refusalHint(session.token),
+    };
+  }
+
   if (launch.code !== ResponderCodes.SUCCESS || !launch.data) {
     return {
       ...emptyLaunch,
@@ -63,5 +75,5 @@ export async function launchAction(
 
   // Deliberately NOT logged: `url` carries a live single-use token for this
   // player's balance, and a log line is the easiest place to leak one.
-  return { error: null, url: launch.data.url, gameCode, currencyCode };
+  return { error: null, verification: null, url: launch.data.url, gameCode, currencyCode };
 }

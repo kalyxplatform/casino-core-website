@@ -5,6 +5,8 @@ import * as webapi from '@/lib/webapi';
 import { ResponderCodes } from '@/lib/webapi';
 import { readSession } from '@/lib/session';
 import { emptyCheckout, type CheckoutState } from '@/lib/checkout-state';
+import { VERIFICATION_REFUSALS } from '@/lib/verification';
+import { refusalHint } from '@/lib/verification-server';
 
 /**
  * The messages `POST /store/checkout` answers with are slugs meant for a
@@ -19,6 +21,8 @@ const CHECKOUT_ERRORS: Record<string, string> = {
   'too-many-attempts': 'Too many purchase attempts. Wait a moment and try again.',
   'not-found': 'That package is not available.',
   'checkout-unavailable': 'Payments are temporarily unavailable. Try again shortly.',
+  // Backend feature 007, contracts §6: refused after the throttle, before any order.
+  ...VERIFICATION_REFUSALS,
 };
 
 export async function checkoutAction(
@@ -37,6 +41,14 @@ export async function checkoutAction(
 
   if (checkout.code === ResponderCodes.FORBIDDEN) redirect('/login');
 
+  if (checkout.message === 'verification-required') {
+    return {
+      ...emptyCheckout,
+      error: CHECKOUT_ERRORS['verification-required'],
+      verification: await refusalHint(session.token),
+    };
+  }
+
   if (checkout.code !== ResponderCodes.SUCCESS || !checkout.data) {
     const slug = checkout.message ?? '';
     return {
@@ -47,6 +59,7 @@ export async function checkoutAction(
 
   return {
     error: null,
+    verification: null,
     redirectUrl: checkout.data.redirect_url,
     reference: checkout.data.reference,
   };

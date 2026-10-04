@@ -34,7 +34,7 @@ import { COOKIE_NAME, parseSession } from '@/lib/session-cookie';
  */
 
 /** Pages that are the player's own: without a session there is nothing to render. */
-const SIGNED_IN_ONLY = ['/account', '/store', '/games', '/verification'];
+const SIGNED_IN_ONLY = ['/account', '/store', '/games', '/verification', '/support'];
 
 /** Pages that only make sense signed OUT — offering them to a player is a dead end. */
 const SIGNED_OUT_ONLY = ['/login', '/register'];
@@ -75,6 +75,7 @@ export const config = {
     '/store/:path*',
     '/games/:path*',
     '/verification/:path*',
+    '/support/:path*',
     '/login',
     '/register',
   ],

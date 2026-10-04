@@ -7,7 +7,7 @@ React 19, Tailwind v4, TypeScript, pnpm. Deployed on Vercel at
 ## What this is right now
 
 A **deliberately small, real** player area, rebuilt from scratch on 2026-09-19 after the
-previous mock site was deleted. Five things work, end to end, against the live
+previous mock site was deleted. Six things work, end to end, against the live
 development API — no mocks, no fabricated data, no static fixtures:
 
 1. **Register / sign in / sign out** — `POST /registration`, `POST /auth/login`, `POST /auth/logout`
@@ -25,6 +25,10 @@ development API — no mocks, no fabricated data, no static fixtures:
    a blocking panel (required rules) on Profile, Games and Get coins, `/verification` holds the
    declaration form, and Play / Buy refused with `verification-required` show the next step.
    See "Verification" below
+6. **Support tickets** — backend feature 008: `/support` opens a ticket (`POST /support/tickets`,
+   categories from `GET /support/tickets`) and lists the player's tickets; `/support/[reference]`
+   shows the thread (`GET /support/tickets/:reference`) with a reply box
+   (`POST …/comments`) and Close (`POST …/close`). See "Support" below
 
 VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
 invented data. Add them back only against real endpoints — which is how the games page came
@@ -147,17 +151,20 @@ src/
     launch-state.ts    # same reason, for the game launch
     verification.ts    # 007: pure readers of the standing/requirements; strips `declared`
     verification-server.ts # 007: readStanding(), refusalHint() — server-only helpers
+    support.ts         # 008: isReference, supportAvailability, form → wire, SUPPORT_ERRORS, states
   actions/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
     games.ts           # game launch
     verification.ts    # 007: declare identity, dismiss a suggestion
+    support.ts         # 008: open a ticket, reply, close
   app/
     login/ register/ account/
     store/            # catalogue; starts checkout and navigates to the provider
     store/return/     # where the provider returns the player; polls while pending
     games/            # lobby; launches into an iframe on the same page
     verification/     # 007: the player's standing and the declaration form
+    support/          # 008: the ticket form and list; [reference]/ is one thread
   components/          # AppShell, BalancePanel, SubmitButton, Alert
 ```
 
@@ -202,6 +209,31 @@ Contracts: `core/casino-core-backend/specs/007-flexible-kyc-policy/contracts/REA
 - **The standing and the declaration are never cached or logged** — every verification call is
   `no-store`, nothing writes a log line — and the standing's `declared` block (the player's legal
   identity) never reaches a client component: pages pass `noticeView(...)`, which drops it.
+
+## Support (backend feature 008)
+
+Contracts: `core/casino-core-backend/specs/008-support-tickets/contracts/README.md`, incl.
+"What the website does with each refusal" and "For the website's change" (SEC-M12).
+
+- **Two 404s, told apart by `message`, never by `code`.** HTTP 200 carrying
+  `404 ticket-not-found` is the business answer (not this player's ticket → the site's
+  not-found page). A `webapi` without the routes answers HTTP STATUS 404 with the framework's
+  message, and `request()` keeps only the envelope — so any other `code 404` means "not
+  shipped" and renders like `415 support-disabled`: "Support is not available.", no form.
+  `supportAvailability()` in `src/lib/support.ts` is the one reader; pinned in
+  `src/lib/support.test.ts`.
+- **One `submission_id` per form fill** (FR-061). The form mints it in the browser with
+  `crypto.randomUUID()` on the first submit and keeps it in a ref; every refusal hands the SAME
+  id back, so a double click or a retry is a replay, never a second ticket or reply. Only
+  `submission-rejected` (and a reply that landed) gets a new one. It is set on the FormData, not
+  rendered into a hidden input: an id minted during render differs between SSR and hydration.
+- **The reference from the URL is checked** against `^T-\d{6,15}$` (`isReference`) before it
+  reaches a path, and `webapi.ts` `encodeURIComponent`s it anyway.
+- **Text is text.** Subjects and messages (the player's and staff's) render as React text
+  children with `whitespace-pre-wrap`; no auto-linking, no `dangerouslySetInnerHTML`.
+- **Never cached, never logged.** Every support call is `no-store`; nothing writes a line; an
+  action never returns the backend's answer whole — a create navigates to the ticket, a reply or
+  close calls `refresh()` and the page re-reads.
 
 ## Gotchas
 

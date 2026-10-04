@@ -3,7 +3,7 @@ import { logoutAction } from '@/actions/auth';
 import type { PlayerProfile } from '@/lib/webapi';
 import { SkeletonBar } from '@/components/Skeleton';
 
-type Tab = 'account' | 'games' | 'store' | 'verification';
+type Tab = 'account' | 'games' | 'store' | 'verification' | 'support';
 
 /**
  * The chrome every signed-in page sits in: who you are, where you can go, and out.
@@ -13,7 +13,7 @@ type Tab = 'account' | 'games' | 'store' | 'verification';
  * it must not read the session — if it did, the shell would be dynamic and there
  * would be nothing to prefetch, which is the whole problem it exists to solve.
  * Everything in this header except the email address is already known statically:
- * the nav is four fixed links and `current` is a literal at each call site.
+ * the nav is five fixed links and `current` is a literal at each call site.
  */
 export function AppShell({
   player,
@@ -46,6 +46,7 @@ export function AppShell({
             {tab('/games', 'games', 'Games')}
             {tab('/store', 'store', 'Get coins')}
             {tab('/verification', 'verification', 'Verification')}
+            {tab('/support', 'support', 'Support')}
           </nav>
 
           <div className="ml-auto flex items-center gap-3">

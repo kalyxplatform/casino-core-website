@@ -449,6 +449,103 @@ export const dismissSuggestion = (token: string, rule: string) =>
     body: { rule },
   });
 
+/* ----------------------------------------------------------------- support */
+
+/**
+ * Backend feature 008 — the player's support tickets. Shapes mirror
+ * `specs/008-support-tickets/contracts/*.json` key for key.
+ *
+ * Every route here is ONE player's, so none of them sets `revalidate`: all are
+ * `no-store`, and Next's shared data cache never holds a ticket. Ticket text is
+ * player- and staff-written; it is never logged (nothing here writes a line),
+ * never put in an address, and rendered as React text children only.
+ *
+ * The reference goes into a path, so it is `encodeURIComponent`-ed here even
+ * though every caller has already checked it against `isReference` (SEC-M12):
+ * this module must not trust that it has.
+ *
+ * Two different 404s (contracts README): HTTP 200 carrying `404 ticket-not-found`
+ * is the business answer; a `webapi` without these routes answers HTTP STATUS 404
+ * with the framework's message. `request()` keeps only the envelope, so they are
+ * told apart by `message` — `supportAvailability` in `lib/support.ts`.
+ */
+
+export type SupportTicketStatus = 'open' | 'in_progress' | 'waiting_player' | 'resolved' | 'closed';
+
+/** One row of `ticket-list-success.json`'s `tickets`. */
+export interface SupportTicket {
+  reference: string;
+  subject: string;
+  category: string;
+  status: SupportTicketStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/** `ticket-list-success.json`'s `data`: the brand's categories (policy order) and the tickets, newest first. */
+export interface SupportTicketList {
+  categories: string[];
+  tickets: SupportTicket[];
+}
+
+/** One entry of `ticket-read-success.json`'s `timeline`. */
+export interface SupportTimelineEntry {
+  kind: 'comment' | 'status';
+  author: 'player' | 'staff' | 'assistant' | 'system';
+  /** A string for a `comment`, `null` for a `status`. */
+  message: string | null;
+  /** `{ from, to }` for a `status`, `null` for a `comment`. */
+  status: { from: SupportTicketStatus; to: SupportTicketStatus } | null;
+  created_at: string;
+}
+
+/** `ticket-read-success.json`'s `data`. The timeline is oldest first, at most 200 entries. */
+export interface SupportTicketDetail extends SupportTicket {
+  can_reply: boolean;
+  timeline_truncated: boolean;
+  timeline: SupportTimelineEntry[];
+}
+
+/** `ticket-create-request.json`, exactly. */
+export interface CreateSupportTicketBody {
+  submission_id: string;
+  category: string;
+  subject: string;
+  message: string;
+}
+
+/** `ticket-comment-request.json`, exactly. */
+export interface SupportReplyBody {
+  submission_id: string;
+  message: string;
+}
+
+const ticketPath = (reference: string) => `/support/tickets/${encodeURIComponent(reference)}`;
+
+/** `GET /support/tickets`. No query string — any query key is a `400`. */
+export const listSupportTickets = (token: string) =>
+  request<SupportTicketList>('/support/tickets', { token });
+
+/** `POST /support/tickets`. The body is EXACTLY the four keys; the answer is `{ reference }`. */
+export const createSupportTicket = (token: string, body: CreateSupportTicketBody) =>
+  request<{ reference: string }>('/support/tickets', { method: 'POST', token, body });
+
+/** `GET /support/tickets/:reference`. */
+export const readSupportTicket = (token: string, reference: string) =>
+  request<SupportTicketDetail>(ticketPath(reference), { token });
+
+/** `POST /support/tickets/:reference/comments`. The body is EXACTLY `{ submission_id, message }`. */
+export const replyToSupportTicket = (token: string, reference: string, body: SupportReplyBody) =>
+  request<{ reference: string }>(`${ticketPath(reference)}/comments`, {
+    method: 'POST',
+    token,
+    body,
+  });
+
+/** `POST /support/tickets/:reference/close`. NO body — a body is a `400`. */
+export const closeSupportTicket = (token: string, reference: string) =>
+  request<{ reference: string }>(`${ticketPath(reference)}/close`, { method: 'POST', token });
+
 /* ---------------------------------------------------------------- realtime */
 
 /**

@@ -3,7 +3,9 @@ import { Suspense } from 'react';
 import { redirectToExpiredSession, requireSession } from '@/lib/session';
 import * as webapi from '@/lib/webapi';
 import {
+  ASSISTANT_UNAVAILABLE,
   SUPPORT_UNAVAILABLE,
+  assistantAvailability,
   categoryLabel,
   formatInstant,
   isReference,
@@ -12,6 +14,7 @@ import {
 } from '@/lib/support';
 import { AppShell } from '@/components/AppShell';
 import { SkeletonCard, SkeletonRegion } from '@/components/Skeleton';
+import { Chat } from './Chat';
 import { TicketForm } from './TicketForm';
 
 /**
@@ -24,6 +27,11 @@ import { TicketForm } from './TicketForm';
  * `ticket-not-found`) — shows the notice and no form (FR-062).
  *
  * Subjects are the player's own text: React text children, never markup.
+ *
+ * Backend feature 009 — the assistant's chat sits above the form. Its
+ * conversation is read here, on the server (`GET /support/conversation`,
+ * `no-store`, never logged), and handed to the client component; the two reads
+ * stream independently, so a slow one never holds the other back.
  */
 export default async function SupportPage() {
   const session = await requireSession();
@@ -34,6 +42,11 @@ export default async function SupportPage() {
       <p className="mt-1 text-sm text-ink-muted">
         Ask about your account, a game or a purchase. We reply here.
       </p>
+
+      {/* No fallback: a brand without the assistant must not flash a chat-shaped skeleton. */}
+      <Suspense fallback={null}>
+        <Assistant token={session.token} />
+      </Suspense>
 
       <Suspense fallback={<SupportFallback />}>
         <Tickets token={session.token} />
@@ -50,6 +63,36 @@ function SupportFallback() {
         <SkeletonCard lines={1} />
       </div>
     </SkeletonRegion>
+  );
+}
+
+/**
+ * The chat, when the brand has the assistant.
+ *
+ * - `415 assistant-disabled` — tickets and no assistant: the form and NO chat.
+ * - `415 support-disabled`, or a `404` from a `webapi` that has not shipped the
+ *   routes — no chat either; `Tickets` below says what there is to say.
+ * - any other failure — a notice, with the ticket form usable below it (FR-098).
+ */
+async function Assistant({ token }: { token: string }) {
+  const answer = await webapi.readSupportConversation(token);
+  const availability = assistantAvailability(answer);
+
+  if (availability === 'signed-out') redirectToExpiredSession();
+  if (availability === 'unavailable' || availability === 'no-assistant') return null;
+
+  if (availability !== 'ok' || !answer.data) {
+    return (
+      <p className="mt-5 rounded-xl border border-edge bg-surface px-4 py-4 text-sm text-ink-muted">
+        {ASSISTANT_UNAVAILABLE}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-5">
+      <Chat conversation={answer.data.conversation ?? null} />
+    </div>
   );
 }
 

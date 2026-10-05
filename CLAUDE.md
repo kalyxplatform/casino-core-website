@@ -7,7 +7,7 @@ React 19, Tailwind v4, TypeScript, pnpm. Deployed on Vercel at
 ## What this is right now
 
 A **deliberately small, real** player area, rebuilt from scratch on 2026-09-19 after the
-previous mock site was deleted. Six things work, end to end, against the live
+previous mock site was deleted. Seven things work, end to end, against the live
 development API — no mocks, no fabricated data, no static fixtures:
 
 1. **Register / sign in / sign out** — `POST /registration`, `POST /auth/login`, `POST /auth/logout`
@@ -29,6 +29,10 @@ development API — no mocks, no fabricated data, no static fixtures:
    categories from `GET /support/tickets`) and lists the player's tickets; `/support/[reference]`
    shows the thread (`GET /support/tickets/:reference`) with a reply box
    (`POST …/comments`) and Close (`POST …/close`). See "Support" below
+7. **Support assistant** — backend feature 009: the chat above the ticket form on `/support`
+   (`GET /support/conversation`, `POST /support/conversation`, `POST …/close`), one message per
+   `POST /api/support/turn`, which relays `POST /support/conversation/turns` and its stream.
+   See "Support assistant" below
 
 VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
 invented data. Add them back only against real endpoints — which is how the games page came
@@ -44,7 +48,9 @@ brand's is answered with no CORS headers at all — never reflected, never `*`.
 
 This app is a **BFF** anyway. Browser → Server Actions / Server Components → `webapi`.
 `src/lib/webapi.ts` is the only module that talks to the API, and it is `import 'server-only'`.
-There is no client-side `fetch` to the API anywhere.
+There is no client-side `fetch` to the API anywhere. (The chat `fetch`es this site's OWN
+`/api/support/turn`, and the live channel opens this site's own `/api/live`; each is a relay
+that makes the `webapi` call on the server.)
 
 That is not a style choice now: **`BRAND_KEY` is a credential**, and a browser-side call
 would have to carry it. The BFF is what keeps the brand key and the session token on the
@@ -152,12 +158,16 @@ src/
     verification.ts    # 007: pure readers of the standing/requirements; strips `declared`
     verification-server.ts # 007: readStanding(), refusalHint() — server-only helpers
     support.ts         # 008: isReference, supportAvailability, form → wire, SUPPORT_ERRORS, states
+                       # 009: assistantAvailability, ASSISTANT_ERRORS, OUTCOME_NOTES, the SEC-M7 labels
+    turn-relay.ts      # 009: the rules of /api/support/turn (Origin, two keys up, two shapes down)
+    turn-events.ts     # 009: the parser of a turn's Server-Sent Events; pure
+    live-relay.ts      # 006: the rules of /api/live
   actions/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
     games.ts           # game launch
     verification.ts    # 007: declare identity, dismiss a suggestion
-    support.ts         # 008: open a ticket, reply, close
+    support.ts         # 008: open a ticket, reply, close; 009: open / close the conversation
   app/
     login/ register/ account/
     store/            # catalogue; starts checkout and navigates to the provider
@@ -165,6 +175,9 @@ src/
     games/            # lobby; launches into an iframe on the same page
     verification/     # 007: the player's standing and the declaration form
     support/          # 008: the ticket form and list; [reference]/ is one thread
+                      # 009: Chat.tsx, the assistant's chat above the form
+    api/live/         # 006: GET, the live channel's relay (EventSource)
+    api/support/turn/ # 009: POST, one turn of the assistant — JSON or an event stream
   components/          # AppShell, BalancePanel, SubmitButton, Alert
 ```
 
@@ -235,6 +248,50 @@ Contracts: `core/casino-core-backend/specs/008-support-tickets/contracts/README.
   action never returns the backend's answer whole — a create navigates to the ticket, a reply or
   close calls `refresh()` and the page re-reads.
 
+## Support assistant (backend feature 009)
+
+Contracts: `core/casino-core-backend/specs/009-player-support-assistant/contracts/README.md` § A.
+The three recorded streams are copied to `src/test-fixtures/support/`, the JSON shapes to
+`src/test-fixtures/assistant.ts`.
+
+- **A turn is a `POST` whose answer is ONE OF TWO content types.** `application/json` is a
+  refusal, a `400`, or the REPLAY of a submission seen before (`data.replayed`, the stored
+  answer). `text/event-stream` is an admitted turn: `( status | delta | ticket )* ( done | error )`,
+  with `: ping` comments anywhere. Branch on `Content-Type`, then on `body.code` or the events.
+  It is not `EventSource` (that cannot `POST`): `Chat.tsx` reads the body with a reader and
+  `createTurnParser()`. A stream that ends with neither `done` nor `error` was cut off — the
+  page re-reads the conversation (`router.refresh()`), it never guesses.
+- **The relay rebuilds both directions; it forwards nothing.** Upstream gets exactly four
+  headers this server builds and a body of exactly `submission_id` and `message`. Downstream a
+  stream is piped byte for byte under exactly `Content-Type` and `Cache-Control: no-store`; a
+  JSON answer is rewritten to `code`, `message` and — for a replay only — the five keys of
+  `data`. `403` clears the session; a transport failure is `500 support-unavailable`.
+- **Only this site's own page may post a turn** (backend SEC-M11). The route is authenticated
+  by the cookie alone and a Route Handler has no built-in origin check, so `turn-relay.ts`
+  refuses a request whose `Origin` host is not the site's (the forwarded host, else `Host`) or
+  whose `Content-Type` is not `application/json`. The cookie's `httpOnly` + `SameSite=Lax` is
+  the first control and is pinned in `src/lib/session.test.ts` — do not loosen either.
+- **One `submission_id` per message** (FR-096), minted in the browser, kept in a ref WITH the
+  text it belongs to, and reused while that text has no answer: after a refusal, and after a
+  request lost in transit, sending again is a replay — never a second turn, never a second
+  ticket. An admitted turn, a replay and `submission-rejected` spend it.
+- **Never cached, never logged, never stored in the browser.** Every call is `no-store`;
+  nothing writes a line (the tests fail on any console output); the conversation actions answer
+  `{ ok, error }` and the page re-reads.
+- **Text is text** (FR-097). The assistant's words, a status label and the player's own message
+  are React text children in `whitespace-pre-wrap`; nothing is parsed as markup or auto-linked.
+  The one link is to a ticket, built from a reference that passed `isReference`.
+- **The labels are not decoration** (backend SEC-M7): the chat's header and every
+  `assistant`-authored entry — in the chat AND on a ticket's timeline (`timelineRows` names it
+  `Assistant`, never `Support`) — say the answer is automated and not a commitment; one line
+  under the input says an AI service processes messages and what not to share.
+- **Who sees the chat.** `assistantAvailability()` reads `GET /support/conversation`:
+  `415 assistant-disabled`, `415 support-disabled` and any `404` (a `webapi` that has not shipped
+  the routes) ⇒ no chat at all, the ticket form as before; any other failure ⇒ a notice above
+  the form. The same answers to a TURN are a notice inside the chat (FR-098).
+- `maxDuration = 120` on the route is headroom over the backend's hard 45 s turn. It is not yet
+  checked against the host's real function limit (backend T070); never set it below 60.
+
 ## Gotchas
 
 - **A `'use server'` module may export only async functions.** Exporting a constant from one
@@ -269,6 +326,7 @@ digest and `KeyHash` to the new one, deploying the new value here, then clearing
 pnpm dev     # localhost:3000
 pnpm build
 pnpm lint
+pnpm test    # vitest, jsdom; nothing needs the API
 ```
 
 ## Deployment

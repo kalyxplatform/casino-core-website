@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "event": "delta",
+      "data": {
+        "text": "Let me check "
+      }
+    },
+    {
+      "event": "error",
+      "data": {
+        "reason": "support-unavailable"
+      }
+    }
+  ]
+}

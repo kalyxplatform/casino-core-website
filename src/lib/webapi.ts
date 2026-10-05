@@ -546,6 +546,115 @@ export const replyToSupportTicket = (token: string, reference: string, body: Sup
 export const closeSupportTicket = (token: string, reference: string) =>
   request<{ reference: string }>(`${ticketPath(reference)}/close`, { method: 'POST', token });
 
+/* ------------------------------------------------------- support assistant */
+
+/**
+ * Backend feature 009 — the support assistant's conversation. Shapes mirror
+ * `specs/009-player-support-assistant/contracts/*.json` key for key.
+ *
+ * No route takes a conversation, player or brand identifier: the session says who
+ * is asking. Every call is ONE player's, so none sets `revalidate` (all are
+ * `no-store`), and nothing here logs — a message is the player's own text and an
+ * answer is about their money.
+ */
+
+export type SupportTurnOutcome =
+  | 'answered'
+  | 'ticketed'
+  | 'budget'
+  | 'refused'
+  | 'truncated'
+  | 'interrupted'
+  | 'failed';
+
+/** One entry of `conversation-read-success.json`'s `messages`. */
+export interface SupportConversationMessage {
+  turn_no: number;
+  role: 'player' | 'assistant';
+  text: string;
+  /** `null` on a player message. */
+  outcome: SupportTurnOutcome | null;
+  /** Set whenever a ticket was opened in that turn, whatever its outcome; `null` on a player message. */
+  ticket_reference: string | null;
+  created_at: string;
+}
+
+/** `conversation-read-success.json`'s `data.conversation`. Oldest first, at most the last 100. */
+export interface SupportConversation {
+  status: 'open';
+  created_at: string;
+  last_turn_at: string | null;
+  messages: SupportConversationMessage[];
+  messages_truncated: boolean;
+}
+
+/** `turn-request.json`, exactly. */
+export interface SupportTurnBody {
+  submission_id: string;
+  message: string;
+}
+
+/** `turn-replay-success.json`'s `data`: the stored outcome of a submission seen before. */
+export interface SupportTurnReplay {
+  replayed: true;
+  turn_no: number;
+  outcome: SupportTurnOutcome;
+  answer: string;
+  ticket_reference: string | null;
+}
+
+/** `GET /support/conversation`. `conversation` is `null` when none is open (closed, idle 24 h, never opened). */
+export const readSupportConversation = (token: string) =>
+  request<{ conversation: SupportConversation | null }>('/support/conversation', { token });
+
+/** `POST /support/conversation`. NO body. Answers the conversation that is now open. */
+export const openSupportConversation = (token: string) =>
+  request<{ conversation: SupportConversation }>('/support/conversation', { method: 'POST', token });
+
+/** `POST /support/conversation/close`. NO body. `{ status: "closed" }` whether or not one was open. */
+export const closeSupportConversation = (token: string) =>
+  request<{ status: 'closed' }>('/support/conversation/close', { method: 'POST', token });
+
+/**
+ * `POST /support/conversation/turns` — one turn, server to server (research R23).
+ *
+ * The answer is one of TWO content types, so this is a raw `fetch` like
+ * `openRealtimeStream` and not `request()`: an admitted turn is
+ * `text/event-stream`, and a refusal, a `400` or a replay is JSON at HTTP 200.
+ * `turn-relay.ts` tells them apart by `Content-Type`.
+ *
+ * The request carries EXACTLY four headers this server constructs and none of the
+ * browser's, and a body rebuilt from the two keys of `turn-request.json`: nothing
+ * else the caller holds can reach `webapi`. Nothing here logs the message.
+ *
+ * Returns the upstream `Response`, or `null` for a transport failure or a missing
+ * brand key.
+ */
+export async function openSupportTurn(
+  token: string,
+  body: SupportTurnBody,
+  signal: AbortSignal,
+): Promise<Response | null> {
+  const key = brandKey();
+  if (!key) return null;
+  try {
+    return await fetch(`${webapiBaseUrl()}/support/conversation/turns`, {
+      method: 'POST',
+      headers: {
+        Accept: 'text/event-stream, application/json',
+        'Content-Type': 'application/json',
+        'X-Brand-Key': key,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ submission_id: body.submission_id, message: body.message }),
+      cache: 'no-store',
+      signal,
+    });
+  } catch {
+    return null;
+  }
+}
+
 /* ---------------------------------------------------------------- realtime */
 
 /**

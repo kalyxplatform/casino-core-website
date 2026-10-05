@@ -3,6 +3,7 @@ import type {
   SupportReplyBody,
   SupportTicketStatus,
   SupportTimelineEntry,
+  SupportTurnOutcome,
 } from './webapi';
 
 /**
@@ -110,13 +111,15 @@ export const formatInstant = (iso: string): string => {
 /* --------------------------------------------------------------- timeline */
 
 export type TimelineRow =
-  | { kind: 'comment'; who: 'You' | 'Support'; text: string; at: string }
+  | { kind: 'comment'; who: 'You' | 'Support' | 'Assistant'; text: string; at: string }
   | { kind: 'status'; note: string; at: string };
 
 /**
  * The thread as rows, in the order the backend sent it (oldest first). A comment
- * keeps its text EXACTLY; the player's own is "You", everything else ("staff",
- * "assistant", "system") is "Support". A status becomes a one-line note.
+ * keeps its text EXACTLY; the player's own is "You", the assistant's is
+ * "Assistant" — never "Support": the page labels it as automated and not a
+ * commitment (backend 009, SEC-M7) — and everything else ("staff", "system") is
+ * "Support". A status becomes a one-line note.
  */
 export function timelineRows(timeline: SupportTimelineEntry[]): TimelineRow[] {
   return timeline.map((entry): TimelineRow => {
@@ -129,11 +132,94 @@ export function timelineRows(timeline: SupportTimelineEntry[]): TimelineRow[] {
     }
     return {
       kind: 'comment',
-      who: entry.author === 'player' ? 'You' : 'Support',
+      who: entry.author === 'player' ? 'You' : entry.author === 'assistant' ? 'Assistant' : 'Support',
       text: typeof entry.message === 'string' ? entry.message : '',
       at: entry.created_at,
     };
   });
+}
+
+/* -------------------------------------------------------------- assistant */
+
+/**
+ * Backend feature 009 — how the chat reads an answer of the conversation routes
+ * or of the turn relay.
+ *
+ * - `ok` — `200`.
+ * - `signed-out` — `403`.
+ * - `unavailable` — `415 support-disabled`, or ANY `404`: these routes have no
+ *   business 404, so a 404 is a `webapi` that has not shipped them yet.
+ * - `no-assistant` — `415 assistant-disabled`: the brand has tickets and no
+ *   assistant. The page shows the form and no chat.
+ * - `failed` — anything else: an outage, or a refusal of a turn the chat reads
+ *   itself through `ASSISTANT_ERRORS`.
+ */
+export type AssistantAvailability = 'ok' | 'signed-out' | 'unavailable' | 'no-assistant' | 'failed';
+
+export function assistantAvailability(answer: { code: number; message?: string }): AssistantAvailability {
+  if (answer.code === 200) return 'ok';
+  if (answer.code === 403) return 'signed-out';
+  if (answer.code === 404) return 'unavailable';
+  if (answer.code === 415 && answer.message === 'support-disabled') return 'unavailable';
+  if (answer.code === 415 && answer.message === 'assistant-disabled') return 'no-assistant';
+  return 'failed';
+}
+
+/** The notice of FR-098: the chat cannot answer, and the ticket form still works. */
+export const ASSISTANT_UNAVAILABLE =
+  'The assistant is not available right now. You can still open a ticket below.';
+
+/** Slugs in, sentences out — each says what to do next (FR-098). Never the backend's own text. */
+export const ASSISTANT_ERRORS: Record<string, string> = {
+  'support-unavailable': ASSISTANT_UNAVAILABLE,
+  'assistant-disabled': ASSISTANT_UNAVAILABLE,
+  'support-disabled': SUPPORT_UNAVAILABLE,
+  'support-busy': 'The assistant is busy. Try again in a moment.',
+  'support-limit':
+    "You've reached today's limit for the assistant. Open a ticket below and a person will reply.",
+  'turn-in-progress': 'Your last message is still being answered. Wait a moment, then send again.',
+  'conversation-closed': 'That conversation has ended. Send your message again to start a new one.',
+  'submission-rejected': 'Please send that again.',
+};
+
+/** For any answer the chat has no sentence for. */
+export const ASSISTANT_FAILED = 'Your message could not be sent right now. Try again shortly.';
+
+/**
+ * What the page adds under an assistant's message, per outcome. `null` where the
+ * answer says it itself: `budget`, `refused` and `truncated` arrive with their
+ * fixed sentence as text, and a ticket is shown by its reference.
+ */
+export const OUTCOME_NOTES: Record<SupportTurnOutcome, string | null> = {
+  answered: null,
+  ticketed: null,
+  budget: null,
+  refused: null,
+  truncated: null,
+  interrupted: 'This answer was interrupted. Send your message again if you still need it.',
+  failed: 'The assistant could not finish this answer. Try again, or open a ticket below.',
+};
+
+export const isTurnOutcome = (value: unknown): value is SupportTurnOutcome =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(OUTCOME_NOTES, value);
+
+/* The labels (SEC-M7): what the assistant is, said wherever its words appear. */
+
+/** Beside every assistant-authored entry, in the chat and on a ticket's timeline. */
+export const ASSISTANT_LABEL = 'Assistant · automated';
+
+/** The chat's header, and under an assistant entry on a ticket. */
+export const ASSISTANT_DISCLAIMER =
+  'Answers from the assistant are automated and are not a commitment by us. A person replies on tickets.';
+
+/** One line under the chat's input. */
+export const ASSISTANT_PRIVACY_NOTE =
+  'Your messages are processed by an AI service. Do not share passwords, card numbers or documents.';
+
+/** What the two conversation actions hand back: a sentence, or nothing. Never the backend's answer. */
+export interface ConversationActionState {
+  ok: boolean;
+  error: string | null;
 }
 
 /* ------------------------------------------------------------ form → wire */

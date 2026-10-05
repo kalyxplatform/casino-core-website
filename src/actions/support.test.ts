@@ -387,3 +387,69 @@ describe('the reads (webapi.ts)', () => {
     );
   });
 });
+
+// Backend feature 009, T066 — opening and closing the assistant's conversation.
+
+describe('openConversationAction / closeConversationAction (009)', () => {
+  const assistant = () => import('@/test-fixtures/assistant');
+
+  it('no session ⇒ /login, and nothing is sent', async () => {
+    session = null;
+    const { openConversationAction, closeConversationAction } = await actions();
+    await expect(openConversationAction()).rejects.toThrow('redirect /login');
+    await expect(closeConversationAction()).rejects.toThrow('redirect /login');
+    expect(calls).toEqual([]);
+  });
+
+  it('open ⇒ POST /support/conversation with NO body; the page re-reads, and the answer is not handed back', async () => {
+    const { conversationOpenSuccess } = await assistant();
+    routes['POST /support/conversation'] = { body: conversationOpenSuccess };
+    const { openConversationAction } = await actions();
+    expect(await openConversationAction()).toStrictEqual({ ok: true, error: null });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toBeUndefined();
+    expect(calls[0].headers['Content-Type']).toBeUndefined();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('close ⇒ POST /support/conversation/close with NO body', async () => {
+    const { conversationCloseSuccess } = await assistant();
+    routes['POST /support/conversation/close'] = { body: conversationCloseSuccess };
+    const { closeConversationAction } = await actions();
+    expect(await closeConversationAction()).toStrictEqual({ ok: true, error: null });
+    expect(calls[0].url).toBe(`${WEBAPI}/support/conversation/close`);
+    expect(calls[0].body).toBeUndefined();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('403 ⇒ /login', async () => {
+    routes['POST /support/conversation'] = { body: fixtures.unauthorized };
+    const { openConversationAction } = await actions();
+    await expect(openConversationAction()).rejects.toThrow('redirect /login');
+  });
+
+  it.each([
+    ['assistant-disabled', 'assistantDisabled'],
+    ['support-disabled', 'supportDisabledAnswer'],
+    ['a webapi without the route (HTTP 404)', 'missing'],
+    ['support-unavailable', 'supportUnavailable'],
+  ] as const)('%s ⇒ the notice that points at the ticket form, never the backend’s text', async (_name, which) => {
+    const all = await assistant();
+    if (which === 'supportDisabledAnswer') routes['POST /support/conversation'] = { body: fixtures.supportDisabled };
+    else if (which !== 'missing') routes['POST /support/conversation'] = { body: all[which] };
+    const { openConversationAction } = await actions();
+    const state = await openConversationAction();
+    expect(state.ok).toBe(false);
+    expect(state.error).toMatch(/ticket/i);
+    expect(state.error).not.toContain('Route');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('an outage ⇒ a sentence, not ok', async () => {
+    routes['POST /support/conversation/close'] = { status: 502, body: 'bad gateway' };
+    const { closeConversationAction } = await actions();
+    const state = await closeConversationAction();
+    expect(state).toStrictEqual({ ok: false, error: 'Your message could not be sent right now. Try again shortly.' });
+  });
+});

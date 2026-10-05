@@ -1,0 +1,44 @@
+{
+  "events": [
+    {
+      "event": "status",
+      "data": {
+        "tool": "list_recent_orders",
+        "label": "Checking your recent purchases"
+      }
+    },
+    {
+      "event": "status",
+      "data": {
+        "tool": "list_my_tickets",
+        "label": "Checking your support tickets"
+      }
+    },
+    {
+      "event": "status",
+      "data": {
+        "tool": "create_ticket",
+        "label": "Opening a support ticket"
+      }
+    },
+    {
+      "event": "ticket",
+      "data": {
+        "reference": "T-000124"
+      }
+    },
+    {
+      "event": "delta",
+      "data": {
+        "text": "I have opened ticket T-000124 so that a person can look at this."
+      }
+    },
+    {
+      "event": "done",
+      "data": {
+        "turn_no": 3,
+        "outcome": "ticketed"
+      }
+    }
+  ]
+}

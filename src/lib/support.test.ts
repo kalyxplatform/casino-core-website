@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import * as fixtures from '@/test-fixtures/support';
+import * as assistant from '@/test-fixtures/assistant';
 import {
+  ASSISTANT_DISCLAIMER,
+  ASSISTANT_ERRORS,
+  ASSISTANT_FAILED,
+  ASSISTANT_LABEL,
+  ASSISTANT_PRIVACY_NOTE,
+  ASSISTANT_UNAVAILABLE,
+  OUTCOME_NOTES,
   SUPPORT_ERRORS,
   SUPPORT_UNAVAILABLE,
+  assistantAvailability,
   isReference,
+  isTurnOutcome,
   replyFormToWire,
   supportAvailability,
   ticketFormToWire,
@@ -172,10 +182,123 @@ describe('timelineRows', () => {
     expect(rows[4].kind === 'status' && rows[4].note).toMatch(/open/i);
   });
 
+  it('an assistant-authored comment is named as the assistant, never as Support (SEC-M7)', () => {
+    const [assistantRow, systemRow] = timelineRows([
+      { ...timeline[2], author: 'assistant', message: 'I have opened this ticket for you.' },
+      { ...timeline[2], author: 'system' },
+    ]);
+    expect(assistantRow).toMatchObject({
+      kind: 'comment',
+      who: 'Assistant',
+      text: 'I have opened this ticket for you.',
+    });
+    expect(systemRow).toMatchObject({ kind: 'comment', who: 'Support' });
+  });
+
   it('markup in a message stays text — it is never parsed', () => {
     const [row] = timelineRows([
       { ...timeline[0], message: '<img src=x onerror=alert(1)> https://evil.test' },
     ]);
     expect(row).toMatchObject({ kind: 'comment', text: '<img src=x onerror=alert(1)> https://evil.test' });
+  });
+});
+
+// Backend feature 009, T063 — how the chat reads an answer, and its words.
+
+describe('assistantAvailability', () => {
+  it('200 ⇒ ok, with or without a conversation', () => {
+    expect(assistantAvailability(assistant.conversationReadNone)).toBe('ok');
+    expect(assistantAvailability(assistant.conversationReadSuccess)).toBe('ok');
+  });
+
+  it('403 ⇒ signed-out', () => {
+    expect(assistantAvailability(fixtures.unauthorized)).toBe('signed-out');
+    expect(assistantAvailability({ code: 403 })).toBe('signed-out');
+  });
+
+  it('415 support-disabled ⇒ unavailable', () => {
+    expect(assistantAvailability(fixtures.supportDisabled)).toBe('unavailable');
+  });
+
+  it('an HTTP 404 before the API ships ⇒ unavailable, whatever its message', () => {
+    expect(assistantAvailability(assistant.routeNotFound)).toBe('unavailable');
+    expect(assistantAvailability({ code: 404 })).toBe('unavailable');
+    expect(assistantAvailability({ code: 404, message: 'not-found' })).toBe('unavailable');
+  });
+
+  it('415 assistant-disabled ⇒ no-assistant', () => {
+    expect(assistantAvailability(assistant.assistantDisabled)).toBe('no-assistant');
+  });
+
+  it('anything else (an outage, a refusal of a turn) ⇒ failed, never ok', () => {
+    expect(assistantAvailability(assistant.supportUnavailable)).toBe('failed');
+    expect(assistantAvailability(assistant.supportLimit)).toBe('failed');
+    expect(assistantAvailability({ code: 500, message: 'The service is unreachable.' })).toBe('failed');
+  });
+});
+
+describe('ASSISTANT_ERRORS (FR-098)', () => {
+  it.each([
+    'support-limit',
+    'support-busy',
+    'turn-in-progress',
+    'conversation-closed',
+    'support-unavailable',
+    'submission-rejected',
+    'assistant-disabled',
+  ])('%s has a sentence that is not the slug', (slug) => {
+    const sentence = ASSISTANT_ERRORS[slug];
+    expect(typeof sentence).toBe('string');
+    expect(sentence).not.toContain(slug);
+    expect(sentence).toMatch(/^[A-Z].*\.$/);
+  });
+
+  it('the refusals that end the chat for now all point at the ticket form', () => {
+    for (const slug of ['support-limit', 'support-unavailable', 'assistant-disabled']) {
+      expect(ASSISTANT_ERRORS[slug]).toMatch(/ticket/i);
+    }
+    expect(ASSISTANT_ERRORS['support-unavailable']).toBe(ASSISTANT_UNAVAILABLE);
+    expect(ASSISTANT_UNAVAILABLE).toMatch(/ticket/i);
+    expect(ASSISTANT_FAILED).toMatch(/^[A-Z].*\.$/);
+  });
+});
+
+describe('OUTCOME_NOTES', () => {
+  const OUTCOMES = ['answered', 'ticketed', 'budget', 'refused', 'truncated', 'interrupted', 'failed'];
+
+  it('has an entry for each outcome, and for nothing else', () => {
+    expect(Object.keys(OUTCOME_NOTES).sort()).toEqual([...OUTCOMES].sort());
+  });
+
+  it('an entry is a sentence, or null where the answer itself says it', () => {
+    for (const outcome of OUTCOMES) {
+      const note = OUTCOME_NOTES[outcome as keyof typeof OUTCOME_NOTES];
+      if (note !== null) expect(note).toMatch(/^[A-Z].*\.$/);
+    }
+    // No text of its own arrives for these two, so the page must say something.
+    expect(OUTCOME_NOTES.interrupted).not.toBeNull();
+    expect(OUTCOME_NOTES.failed).not.toBeNull();
+  });
+
+  it('isTurnOutcome knows exactly those', () => {
+    for (const outcome of OUTCOMES) expect(isTurnOutcome(outcome)).toBe(true);
+    expect(isTurnOutcome('toString')).toBe(false);
+    expect(isTurnOutcome('')).toBe(false);
+    expect(isTurnOutcome(null)).toBe(false);
+  });
+});
+
+describe('the labels (SEC-M7)', () => {
+  it('say the answers are automated and not a commitment', () => {
+    expect(ASSISTANT_LABEL).toMatch(/automated/i);
+    expect(ASSISTANT_DISCLAIMER).toMatch(/automated/i);
+    expect(ASSISTANT_DISCLAIMER).toMatch(/not a commitment/i);
+  });
+
+  it('say an AI service processes the messages, and what not to share', () => {
+    expect(ASSISTANT_PRIVACY_NOTE).toMatch(/AI service/);
+    expect(ASSISTANT_PRIVACY_NOTE).toMatch(/passwords/);
+    expect(ASSISTANT_PRIVACY_NOTE).toMatch(/card numbers/);
+    expect(ASSISTANT_PRIVACY_NOTE).toMatch(/documents/);
   });
 });

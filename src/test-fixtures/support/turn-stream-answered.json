@@ -1,0 +1,24 @@
+{
+  "events": [
+    {
+      "event": "status",
+      "data": {
+        "tool": "list_recent_game_activity",
+        "label": "Checking your recent game activity"
+      }
+    },
+    {
+      "event": "delta",
+      "data": {
+        "text": "Your records show a bet of 5 SC on Dragon Spins."
+      }
+    },
+    {
+      "event": "done",
+      "data": {
+        "turn_no": 1,
+        "outcome": "answered"
+      }
+    }
+  ]
+}

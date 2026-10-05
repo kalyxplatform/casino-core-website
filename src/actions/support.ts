@@ -7,6 +7,9 @@ import * as webapi from '@/lib/webapi';
 import { ResponderCodes, type ApiResponse } from '@/lib/webapi';
 import { readSession } from '@/lib/session';
 import {
+  ASSISTANT_ERRORS,
+  ASSISTANT_FAILED,
+  ASSISTANT_UNAVAILABLE,
   SUPPORT_ERRORS,
   SUPPORT_FAILED,
   SUPPORT_UNAVAILABLE,
@@ -14,7 +17,9 @@ import {
   replyFormToWire,
   supportAvailability,
   ticketFormToWire,
+  assistantAvailability,
   type CloseState,
+  type ConversationActionState,
   type ReplyState,
   type TicketFormState,
 } from '@/lib/support';
@@ -117,4 +122,39 @@ export async function closeAction(_previous: CloseState, formData: FormData): Pr
   }
 
   return { error: refusal(answer) };
+}
+
+/* --------------------------------------------------- the assistant (009) */
+
+/**
+ * Backend feature 009 — opening and closing the assistant's conversation. The
+ * turn itself is not an action: its answer is a stream, relayed by
+ * `app/api/support/turn`.
+ *
+ * Like the ticket writes, neither hands the backend's answer back: each answers
+ * `{ ok, error }`, and on success the page re-reads the conversation on the server.
+ */
+function conversationAnswer(answer: ApiResponse<unknown>): ConversationActionState {
+  const availability = assistantAvailability(answer);
+  if (availability === 'signed-out') redirect('/login');
+  if (availability === 'ok') {
+    refresh();
+    return { ok: true, error: null };
+  }
+  if (availability !== 'failed') return { ok: false, error: ASSISTANT_UNAVAILABLE };
+  return { ok: false, error: ASSISTANT_ERRORS[answer.message ?? ''] ?? ASSISTANT_FAILED };
+}
+
+/** `POST /support/conversation`. An open conversation with no turns is returned as it is. */
+export async function openConversationAction(): Promise<ConversationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/login');
+  return conversationAnswer(await webapi.openSupportConversation(session.token));
+}
+
+/** `POST /support/conversation/close`. Closing when none is open is a success. */
+export async function closeConversationAction(): Promise<ConversationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/login');
+  return conversationAnswer(await webapi.closeSupportConversation(session.token));
 }

@@ -4,6 +4,8 @@ import { Suspense } from 'react';
 import { redirectToExpiredSession, requireSession } from '@/lib/session';
 import * as webapi from '@/lib/webapi';
 import {
+  ASSISTANT_DISCLAIMER,
+  ASSISTANT_LABEL,
   SUPPORT_ERRORS,
   SUPPORT_UNAVAILABLE,
   categoryLabel,
@@ -26,7 +28,10 @@ import { ReplyForm } from './ReplyForm';
  * not-found page, as is HTTP 200 `404 ticket-not-found` (another player's, another
  * brand's or no such ticket — one answer for all).
  *
- * Every message is player- or staff-written text: a React text child with
+ * An `assistant`-authored entry (backend 009) is labelled as automated and not a
+ * commitment (SEC-M7).
+ *
+ * Every message is player-, staff- or assistant-written text: a React text child with
  * `whitespace-pre-wrap`, never markup, never auto-linked.
  */
 export default async function TicketPage({ params }: { params: Promise<{ reference: string }> }) {
@@ -107,10 +112,16 @@ async function Thread({ token, reference }: { token: string; reference: string }
               }`}
             >
               <div className="flex items-baseline justify-between gap-4 text-xs text-ink-muted">
-                <span className="font-medium text-ink">{row.who}</span>
+                <span className="font-medium text-ink">
+                  {row.who === 'Assistant' ? ASSISTANT_LABEL : row.who}
+                </span>
                 <span>{formatInstant(row.at)}</span>
               </div>
               <p className="mt-2 text-sm whitespace-pre-wrap break-words">{row.text}</p>
+              {/* SEC-M7: the assistant's words must never read as the brand's promise. */}
+              {row.who === 'Assistant' && (
+                <p className="mt-2 text-xs text-ink-muted">{ASSISTANT_DISCLAIMER}</p>
+              )}
             </li>
           ) : (
             <li key={index} className="px-1 text-xs text-ink-muted">

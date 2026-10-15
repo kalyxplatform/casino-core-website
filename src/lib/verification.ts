@@ -171,8 +171,9 @@ export function describeTrigger(trigger: VerificationTrigger): string {
 
 export const NEXT_STEP_TEXT: Record<string, string | null> = {
   declare: 'Declare your identity: your legal name, date of birth, address and nationality.',
-  submit:
-    'Submit your identity documents. Document upload is not available on this site yet — contact support to complete it.',
+  // 015: `submit` is answered only while the verification provider is on (provider
+  // off ⇒ `wait`), so the page offers "Verify now" beside it.
+  submit: 'Verify your identity with an identity document. It takes a few minutes.',
   wait: 'Your details are being reviewed. There is nothing more to do for now.',
   none: null,
 };
@@ -223,6 +224,8 @@ export interface NoticeView {
   closed: Record<GatedAction, boolean>;
   demandReason: string | null;
   rejectionReason: string | null;
+  /** 015: the identity-document step, if any. Never the reference or an address. */
+  step: SessionStep | null;
 }
 
 const toRule = (asking: VerificationAsking): NoticeRule => ({
@@ -252,8 +255,16 @@ export function noticeView(standing: VerificationStanding): NoticeView {
     },
     demandReason: standing.demand_reason ?? null,
     rejectionReason: standing.rejection_reason ?? null,
+    step: sessionStep(standing),
   };
 }
+
+/** True when the player has something to do: declare, or verify with a document. */
+export const canAct = (view: NoticeView): boolean =>
+  view.canDeclare ||
+  view.step?.kind === 'start' ||
+  view.step?.kind === 'resume' ||
+  view.step?.kind === 'resubmit';
 
 /** True when a notice has anything to say. */
 export const noticeHasContent = (view: NoticeView): boolean =>
@@ -262,6 +273,113 @@ export const noticeHasContent = (view: NoticeView): boolean =>
   view.demandReason !== null ||
   view.rejectionReason !== null ||
   Object.values(view.closed).some(Boolean);
+
+/* ------------------------------------------------- identity documents (015) */
+
+/**
+ * Backend feature 015 — the identity-document step, from the standing's
+ * `verification_session` (contracts §1) and `next_step`.
+ *
+ *  - `start`    "Verify now": `submit` and no open session (or a lapsed one, which
+ *               a start replaces);
+ *  - `resume`   "Continue verification": a session `started`, still `submit`;
+ *  - `resubmit` the verification provider sent the documents back: its `hint`, or
+ *               — when the platform answers `null` (a reason code outside 201 – 217)
+ *               — this site's own fixed sentence, and never a third one
+ *               (D-075 amendment 2026-10-14, US2's review, item 1);
+ *  - `checking` `submitted` / `review`: "We are checking your documents."
+ *
+ * Both `resume` and `resubmit` go through the same start as `start`: the backend
+ * answers the open session (`already_started: true`) with its hand-off address,
+ * so the page never needs `resume_url` or the reference, and neither reaches the
+ * browser until the player presses the button.
+ *
+ * The key is ABSENT from a `webapi` that predates 015, and anything this site
+ * cannot read there is treated as absent: `next_step` alone then decides.
+ */
+export type SessionStep =
+  | { kind: 'start' }
+  | { kind: 'resume' }
+  | { kind: 'resubmit'; hint: string }
+  | { kind: 'checking' };
+
+export const RESUBMIT_SENTENCE = 'Please submit your documents again.';
+export const CHECKING_SENTENCE = 'We are checking your documents.';
+
+const openSessionOf = (
+  standing: VerificationStanding,
+): { status: string; hint: string | null } | null => {
+  const candidate: unknown = standing.verification_session;
+  if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) return null;
+  const { status, hint } = candidate as { status?: unknown; hint?: unknown };
+  if (typeof status !== 'string') return null;
+  return { status, hint: typeof hint === 'string' && hint.trim() !== '' ? hint : null };
+};
+
+export function sessionStep(standing: VerificationStanding): SessionStep | null {
+  const session = openSessionOf(standing);
+  if (session?.status === 'submitted' || session?.status === 'review') return { kind: 'checking' };
+  if (standing.next_step !== 'submit') return null;
+  if (session?.status === 'started') return { kind: 'resume' };
+  if (session?.status === 'resubmission_requested') {
+    return { kind: 'resubmit', hint: session.hint ?? RESUBMIT_SENTENCE };
+  }
+  return { kind: 'start' };
+}
+
+/**
+ * The start's `redirect_url` (the platform's hand-off address), or `null` when it
+ * is not an absolute `https` address — the one URL this site sends a player to
+ * from here, followed and never stored.
+ */
+export function handoffAddress(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const raw = (data as { redirect_url?: unknown }).redirect_url;
+  if (typeof raw !== 'string') return null;
+  try {
+    return new URL(raw).protocol === 'https:' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/** What "Verify now" / "Continue verification" gets back when it does not navigate. */
+export interface StartVerificationState {
+  error: string | null;
+  /** No verification provider to send the player to: the button is not offered again. */
+  unavailable: boolean;
+}
+
+export const emptyStartVerification: StartVerificationState = { error: null, unavailable: false };
+
+export const NO_VERIFICATION_PROVIDER =
+  'Identity document checks are not available right now. Contact support to complete your verification.';
+
+/** Refusals of `POST /verification/sessions` that mean "no verification provider" (contracts §2). */
+export const NO_PROVIDER_REFUSALS = new Set([
+  'verification-provider-unavailable',
+  'verification-not-available',
+]);
+
+export const START_VERIFICATION_ERRORS: Record<string, string> = {
+  'declaration-required': 'Declare your identity first, then verify it with a document.',
+  'verification-limit':
+    'You have started verification too many times in the last 24 hours. Try again later.',
+};
+
+export const START_VERIFICATION_FAILED =
+  'Verification is temporarily unavailable. Try again shortly.';
+
+/**
+ * `/verification/return`'s address. `closed` is the ONE parameter read (`1` from
+ * the hand-off when the session has ended); everything else is dropped unread —
+ * the page carries no reference and takes nothing from the URL (contracts §3).
+ */
+export function returnParams(
+  params: Record<string, string | string[] | undefined>,
+): { closed: boolean } {
+  return { closed: params.closed === '1' };
+}
 
 /* ----------------------------------------------------------- declaration */
 

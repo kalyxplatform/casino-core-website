@@ -167,3 +167,152 @@ export const routeNotFound = {
   error: 'Not Found',
 };
 export const unauthorized = { code: 403, message: 'Unauthorized' };
+
+/* ------------------------------------------------------------------ 015 */
+
+/**
+ * Backend feature 015's contract fixtures (the verification provider: identity
+ * documents), copied key for key from
+ * `casino-core-backend/specs/015-veriff-identity-verification/contracts/`.
+ */
+
+const declared015 = {
+  first_name: 'Jose',
+  last_name: 'Alvarez',
+  date_of_birth: '1990-04-01',
+  address: {
+    line1: '1 Test Street',
+    line2: null,
+    city: 'Testville',
+    postal_code: '00000',
+    country_id: 1,
+  },
+  nationality_country_id: 1,
+};
+
+const asking015 = [
+  {
+    rule: 'verify-before-first-bet',
+    trigger: { kind: 'bets', count: 0 },
+    level: 2,
+    mode: 'required',
+    required_from: null,
+    dismissed: false,
+  },
+];
+
+const gameClosed015 = {
+  game: { open: false, reason: 'verification-required' },
+  purchase: { open: true },
+  withdrawal: { open: true },
+};
+
+const REFERENCE_015 = '9b1d3f7a2c4e6a8b0d2f4a6c8e0b2d4f';
+const HANDOFF_015 = `https://integrations.platform.example/verification/handoff/${REFERENCE_015}`;
+
+const session015 = (status: string, hint: string | null) => ({
+  reference: REFERENCE_015,
+  status,
+  started_at: '2026-10-13T10:00:00.000Z',
+  resume_url: HANDOFF_015,
+  hint,
+});
+
+const standing015 = (
+  state: string,
+  nextStep: string,
+  verificationSession: ReturnType<typeof session015> | null,
+) => ({
+  code: 200,
+  message: 'ok',
+  data: {
+    level: 1,
+    state,
+    declared: declared015,
+    asking: asking015,
+    actions: gameClosed015,
+    rejection_reason: null,
+    demand_reason: null,
+    next_step: nextStep,
+    verification_session: verificationSession,
+  },
+});
+
+/** `standing-session-none-submit.json`. */
+export const standingSessionNoneSubmit = standing015('declared', 'submit', null);
+
+/** `standing-session-started.json`. */
+export const standingSessionStarted = standing015('declared', 'submit', session015('started', null));
+
+/** `standing-session-submitted.json`. */
+export const standingSessionSubmitted = standing015(
+  'submitted',
+  'wait',
+  session015('submitted', null),
+);
+
+/** `standing-session-resubmission.json`. */
+export const standingSessionResubmission = standing015(
+  'declared',
+  'submit',
+  session015('resubmission_requested', 'Poor image quality'),
+);
+
+/** `standing-session-provider-off.json`. */
+export const standingSessionProviderOff = standing015('declared', 'wait', null);
+
+/** `standing-session-declined-exhausted.json`. */
+export const standingSessionDeclinedExhausted = {
+  code: 200,
+  message: 'ok',
+  data: {
+    ...standing015('rejected', 'none', null).data,
+    rejection_reason: 'We could not verify your identity from the documents provided.',
+  },
+};
+
+/** The same session, but `review` (the status the contract's table names beside `submitted`). */
+export const standingSessionReview = standing015('submitted', 'wait', session015('review', null));
+
+/** A resubmission whose reason code is outside 201 – 217: `hint: null` (D-075, US2's review, item 1). */
+export const standingSessionResubmissionNoHint = standing015(
+  'declared',
+  'submit',
+  session015('resubmission_requested', null),
+);
+
+/** `session-start-success.json`. */
+export const sessionStartSuccess = {
+  code: 200,
+  message: 'ok',
+  data: {
+    reference: REFERENCE_015,
+    redirect_url: HANDOFF_015,
+    already_started: false,
+    expires_at: '2026-10-20T10:00:00.000Z',
+  },
+};
+
+/** `session-start-already-started.json`. */
+export const sessionStartAlreadyStarted = {
+  code: 200,
+  message: 'ok',
+  data: { ...sessionStartSuccess.data, already_started: true },
+};
+
+/** `session-start-declaration-required.json`. */
+export const sessionStartDeclarationRequired = { code: 415, message: 'declaration-required' };
+/** `session-start-not-available.json`. */
+export const sessionStartNotAvailable = { code: 415, message: 'verification-not-available' };
+/** `session-start-limit.json`. */
+export const sessionStartLimit = { code: 415, message: 'verification-limit' };
+/** `session-start-provider-unavailable.json`. */
+export const sessionStartProviderUnavailable = {
+  code: 415,
+  message: 'verification-provider-unavailable',
+};
+/** `session-start-no-return-url.json`. */
+export const sessionStartNoReturnUrl = { code: 500, message: 'verification-unavailable' };
+
+export const verificationReference015 = REFERENCE_015;
+export const verificationHandoff015 = HANDOFF_015;

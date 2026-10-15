@@ -33,6 +33,11 @@ development API — no mocks, no fabricated data, no static fixtures:
    (`GET /support/conversation`, `POST /support/conversation`, `POST …/close`), one message per
    `POST /api/support/turn`, which relays `POST /support/conversation/turns` and its stream.
    See "Support assistant" below
+8. **Identity documents** — backend feature 015: where the standing says `submit`, `/verification`
+   offers "Verify now" (`POST /verification/sessions`, then the platform's hand-off and the
+   verification provider), "Continue verification", the provider's resubmission hint, or "We are
+   checking your documents"; the provider sends the player back to `/verification/return`.
+   See "Identity documents" below
 
 VIP, promotions, crypto, brand theming and i18n are **gone**. They were mock UI over
 invented data. Add them back only against real endpoints — which is how the games page came
@@ -166,7 +171,7 @@ src/
     auth.ts            # register / login / logout
     store.ts           # checkout, order polling
     games.ts           # game launch
-    verification.ts    # 007: declare identity, dismiss a suggestion
+    verification.ts    # 007: declare identity, dismiss a suggestion; 015: start/resume a session
     support.ts         # 008: open a ticket, reply, close; 009: open / close the conversation
   app/
     login/ register/ account/
@@ -174,6 +179,7 @@ src/
     store/return/     # where the provider returns the player; polls while pending
     games/            # lobby; launches into an iframe on the same page
     verification/     # 007: the player's standing and the declaration form
+                      # 015: Standing.tsx shared with return/, the provider's way back
     support/          # 008: the ticket form and list; [reference]/ is one thread
                       # 009: Chat.tsx, the assistant's chat above the form
     api/live/         # 006: GET, the live channel's relay (EventSource)
@@ -222,6 +228,32 @@ Contracts: `core/casino-core-backend/specs/007-flexible-kyc-policy/contracts/REA
 - **The standing and the declaration are never cached or logged** — every verification call is
   `no-store`, nothing writes a log line — and the standing's `declared` block (the player's legal
   identity) never reaches a client component: pages pass `noticeView(...)`, which drops it.
+
+## Identity documents (backend feature 015)
+
+Contracts: `core/casino-core-backend/specs/015-veriff-identity-verification/contracts/README.md`
+§1–§3, copied to `src/test-fixtures/verification.ts`.
+
+- **`verification_session` may be ABSENT** (a `webapi` before 015) or `null`, and anything this
+  site cannot read there counts as absent. `sessionStep()` in `src/lib/verification.ts` is the
+  one reader: `submitted`/`review` ⇒ "We are checking your documents."; with `next_step:
+  submit`, `started` ⇒ "Continue verification", `resubmission_requested` ⇒ the provider's `hint`,
+  else the site's own `RESUBMIT_SENTENCE` (D-075 amendment 2026-10-14, US2's review, item 1 — the
+  platform sends no third sentence), and no session or a `lapsed` one ⇒ "Verify now".
+- **Both buttons are the same start.** `startVerificationAction` calls `POST
+  /verification/sessions` (body exactly `{}`); with a session open the backend answers THAT one
+  (`already_started: true`), so resuming needs neither `resume_url` nor the reference. The action
+  `redirect()`s to `redirect_url` (https only, `handoffAddress`) and returns nothing of the answer.
+  "Continue verification" is a button, never a link: a link would put the reference in the page,
+  and a prefetch or `HEAD` of the hand-off CREATES a session at the verification provider.
+- **No verification provider is a sentence, never a crash**: any `404` (a `webapi` without the
+  route), `verification-provider-unavailable` and `verification-not-available` hide the button and
+  say so; `declaration-required` and `verification-not-available` also re-read the page.
+- **`/verification/return` only re-reads the standing.** Landing there proves nothing — the
+  provider's signed decision reaches the platform on its own. It reads `closed` from its address
+  (`returnParams`) and nothing else, and carries no reference.
+- **Never logged, cached or put in an address of ours**: the standing, the reference, the hand-off
+  address, the provider's address. `noticeView` carries only the step's kind and the hint.
 
 ## Support (backend feature 008)
 

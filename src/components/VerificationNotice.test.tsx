@@ -68,6 +68,27 @@ describe('VerificationNotice', () => {
   });
 });
 
+describe('VerificationNotice — backend 015\'s identity-document step', () => {
+  it.each([
+    ['submit, no session', fixtures.standingSessionNoneSubmit],
+    ['a started session', fixtures.standingSessionStarted],
+    ['a resubmission', fixtures.standingSessionResubmission],
+  ])('%s: the panel says "Verify your identity" and links to /verification', (_name, body) => {
+    const { container } = render(<VerificationNotice view={view(body.data)} action="game" />);
+    expect(screen.getByRole('link', { name: 'Verify your identity' }).getAttribute('href')).toBe(
+      '/verification',
+    );
+    expect(container.textContent).not.toContain('contact support to complete it');
+    // The hand-off address and the reference never reach another page.
+    expect(container.innerHTML).not.toContain('integrations.platform.example');
+  });
+
+  it('submitted: nothing to do, so "See your verification"', () => {
+    render(<VerificationNotice view={view(fixtures.standingSessionSubmitted.data)} action="game" />);
+    expect(screen.getByRole('link', { name: 'See your verification' })).toBeTruthy();
+  });
+});
+
 describe('SEC-M10: no markup injection anywhere in the site', () => {
   // jsdom gives `import.meta.url` a non-file scheme; vitest runs from the repo root.
   const root = join(process.cwd(), 'src');

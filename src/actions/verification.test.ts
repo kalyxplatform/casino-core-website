@@ -255,3 +255,94 @@ describe('the player\'s own writes (contracts §2, §3)', () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 });
+
+describe('"Verify now" — POST /verification/sessions (backend 015, contracts §2)', () => {
+  const start = async () => {
+    const { startVerificationAction } = await import('@/actions/verification');
+    return startVerificationAction();
+  };
+
+  it.each([
+    ['session-start-success', fixtures.sessionStartSuccess],
+    ['session-start-already-started (the resume)', fixtures.sessionStartAlreadyStarted],
+  ])('%s: the body is EXACTLY {}, and the browser goes to redirect_url', async (_name, body) => {
+    routes['POST /verification/sessions'] = { body };
+    await expect(start()).rejects.toThrow(`redirect ${fixtures.verificationHandoff015}`);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      url: `${WEBAPI}/verification/sessions`,
+      method: 'POST',
+      body: {},
+      headers: { 'X-Brand-Key': BRAND_KEY, Authorization: 'Bearer the-session-token' },
+    });
+  });
+
+  it('a backend without the route (HTTP 404) ⇒ no verification provider, not a crash', async () => {
+    const state = await start();
+    expect(state.unavailable).toBe(true);
+    expect(state.error).toMatch(/not available/);
+  });
+
+  it.each([
+    ['session-start-provider-unavailable', fixtures.sessionStartProviderUnavailable, 0],
+    // The step is no longer the player's: the standing on screen is stale, so it re-reads.
+    ['session-start-not-available', fixtures.sessionStartNotAvailable, 1],
+  ])('%s ⇒ no verification provider', async (_name, body, refreshes) => {
+    routes['POST /verification/sessions'] = { body };
+    const state = await start();
+    expect(state.unavailable).toBe(true);
+    expect(state.error).toMatch(/not available/);
+    expect(refresh).toHaveBeenCalledTimes(refreshes);
+  });
+
+  it('session-start-declaration-required: declare first, and the page re-reads', async () => {
+    routes['POST /verification/sessions'] = { body: fixtures.sessionStartDeclarationRequired };
+    const state = await start();
+    expect(state).toEqual({ error: expect.stringMatching(/Declare your identity first/), unavailable: false });
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it('session-start-limit: a sentence, the button stays', async () => {
+    routes['POST /verification/sessions'] = { body: fixtures.sessionStartLimit };
+    const state = await start();
+    expect(state.error).toMatch(/too many times/);
+    expect(state.unavailable).toBe(false);
+  });
+
+  it.each([
+    ['session-start-no-return-url', fixtures.sessionStartNoReturnUrl],
+    ['verification-policy-unavailable', fixtures.policyUnavailable],
+    ['a transport failure', { status: 502, body: 'not json' }],
+  ])('%s: "try again shortly"', async (_name, answer) => {
+    routes['POST /verification/sessions'] =
+      'status' in answer ? (answer as { status: number; body: unknown }) : { body: answer };
+    const state = await start();
+    expect(state.error).toMatch(/temporarily unavailable/);
+    expect(state.unavailable).toBe(false);
+  });
+
+  it('403: signed out', async () => {
+    routes['POST /verification/sessions'] = { body: fixtures.unauthorized };
+    await expect(start()).rejects.toThrow('redirect /login');
+  });
+
+  it('a success whose redirect_url is not https is never followed', async () => {
+    routes['POST /verification/sessions'] = {
+      body: { ...fixtures.sessionStartSuccess, data: { ...fixtures.sessionStartSuccess.data, redirect_url: 'javascript:alert(1)' } },
+    };
+    const state = await start();
+    expect(state.error).toMatch(/temporarily unavailable/);
+  });
+
+  it('no session cookie: to sign-in, nothing sent', async () => {
+    session = null;
+    await expect(start()).rejects.toThrow('redirect /login');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('the answer never reaches the browser: no reference, no address in the state', async () => {
+    routes['POST /verification/sessions'] = { body: fixtures.sessionStartLimit };
+    const state = await start();
+    expect(JSON.stringify(state)).not.toContain(fixtures.verificationReference015);
+  });
+});

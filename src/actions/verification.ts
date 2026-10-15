@@ -7,14 +7,20 @@ import { ResponderCodes } from '@/lib/webapi';
 import { readSession } from '@/lib/session';
 import {
   DECLARATION_ERRORS,
+  NO_PROVIDER_REFUSALS,
+  NO_VERIFICATION_PROVIDER,
+  START_VERIFICATION_ERRORS,
+  START_VERIFICATION_FAILED,
   declarationFrom,
   declarationValues,
+  handoffAddress,
   type DeclarationState,
   type DismissState,
+  type StartVerificationState,
 } from '@/lib/verification';
 
 /**
- * Backend feature 007 — the player's two verification writes.
+ * Backend feature 007 — the player's two verification writes; and 015's start.
  *
  * Neither the declaration nor the standing it answers with is logged, cached or
  * put in an address (SEC-M10): nothing here writes a line, and the answer is not
@@ -83,4 +89,54 @@ export async function dismissAction(
   }
 
   return { error: 'That suggestion could not be dismissed right now.', dismissed: false };
+}
+
+/**
+ * Backend feature 015 — "Verify now" and "Continue verification":
+ * `POST /verification/sessions` (contracts §2), then a full-page navigation to the
+ * `redirect_url` it answers — the platform's hand-off, which sends the player on
+ * to the verification provider. A start while a session is open answers THAT
+ * session (`already_started: true`), so resuming is the same call.
+ *
+ * The answer is followed, never returned to the browser, logged or stored: the
+ * reference and the address are in the redirect alone (SEC-M6). It reads
+ * nothing from the form: the body is `{}`, so `useActionState`'s two arguments
+ * are not declared.
+ */
+export async function startVerificationAction(): Promise<StartVerificationState> {
+  const session = await readSession();
+  if (!session) redirect('/login');
+
+  const answer = await webapi.startVerificationSession(session.token);
+
+  if (answer.code === ResponderCodes.FORBIDDEN) redirect('/login');
+
+  if (answer.code === ResponderCodes.SUCCESS) {
+    const address = handoffAddress(answer.data);
+    // Outside any try: `redirect` throws to navigate. An absolute address is a
+    // full-page navigation to another origin.
+    if (address) redirect(address);
+    return { error: START_VERIFICATION_FAILED, unavailable: false };
+  }
+
+  const slug = answer.message ?? '';
+
+  // A `webapi` without the route (HTTP 404 through the exception filter), no
+  // hand-off configured, or the step no longer the player's: nothing to send them
+  // to. The standing the page shows is stale in the last case, so it re-reads.
+  if (answer.code === ResponderCodes.NOT_FOUND || NO_PROVIDER_REFUSALS.has(slug)) {
+    if (slug === 'verification-not-available') refresh();
+    return { error: NO_VERIFICATION_PROVIDER, unavailable: true };
+  }
+
+  if (slug === 'declaration-required') {
+    // Level 0: the page re-reads and shows the declaration form.
+    refresh();
+    return { error: START_VERIFICATION_ERRORS[slug], unavailable: false };
+  }
+
+  return {
+    error: START_VERIFICATION_ERRORS[slug] ?? START_VERIFICATION_FAILED,
+    unavailable: false,
+  };
 }

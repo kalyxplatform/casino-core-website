@@ -408,6 +408,36 @@ export interface VerificationStanding {
   actions: { game: ActionVerdict; purchase: ActionVerdict; withdrawal: ActionVerdict };
   rejection_reason: string | null;
   demand_reason: string | null;
+  /**
+   * Backend feature 015 (`specs/015-veriff-identity-verification/contracts/README.md` §1):
+   * the player's OPEN identity-document session, or `null`. ABSENT from a `webapi`
+   * that predates 015, so optional here and read only through `sessionStep()`.
+   */
+  verification_session?: VerificationSession | null;
+}
+
+/**
+ * 015 contracts §1. `reference` and `resume_url` are the player's own secret
+ * (a 32-hex reference, and the hand-off address that carries it). Neither is
+ * rendered, put in an address of this site's, or handed to a client component:
+ * the page reads `status` and `hint` through `sessionStep()` and nothing else.
+ * `hint` is the verification provider's text — rendered as text, never markup.
+ */
+export interface VerificationSession {
+  reference: string;
+  status: 'started' | 'submitted' | 'resubmission_requested' | 'review' | 'lapsed' | string;
+  started_at: string;
+  resume_url: string;
+  hint: string | null;
+}
+
+/** 015 contracts §2 — `session-start-success.json` / `session-start-already-started.json`. */
+export interface VerificationSessionStart {
+  reference: string;
+  /** The platform's hand-off address (`integrations`), which 303s on to the verification provider. */
+  redirect_url: string;
+  already_started: boolean;
+  expires_at: string;
 }
 
 /** `contracts/registration-requirements-*.json` — §4. */
@@ -447,6 +477,19 @@ export const dismissSuggestion = (token: string, rule: string) =>
     method: 'POST',
     token,
     body: { rule },
+  });
+
+/**
+ * `POST /verification/sessions` (015 contracts §2) — start an identity-document
+ * session, or answer the open one (`already_started: true`). The body is EXACTLY
+ * `{}`: the player and the brand come from the token and `X-Brand-Key`, and any
+ * property is a `400`. Never cached; the answer is followed, never stored.
+ */
+export const startVerificationSession = (token: string) =>
+  request<VerificationSessionStart>('/verification/sessions', {
+    method: 'POST',
+    token,
+    body: {},
   });
 
 /* ----------------------------------------------------------------- support */

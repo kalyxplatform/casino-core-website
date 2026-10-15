@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { GatedAction, NoticeRule, NoticeView } from '@/lib/verification';
+import { canAct, type GatedAction, type NoticeRule, type NoticeView } from '@/lib/verification';
 import { DismissSuggestion } from './DismissSuggestion';
 
 /**
@@ -93,7 +93,7 @@ export function VerificationNotice({
             <p className="mt-1 text-sm text-ink-muted">
               {rule.moment} — {rule.level.toLowerCase()} is suggested.
             </p>
-            {!onVerificationPage && view.canDeclare && (
+            {!onVerificationPage && canAct(view) && (
               <Link
                 href="/verification"
                 className="mt-2 inline-block text-sm font-medium text-accent hover:underline"
@@ -135,7 +135,7 @@ function NextStep({ view, onVerificationPage }: { view: NoticeView; onVerificati
           href="/verification"
           className="mt-3 inline-flex items-center rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink transition hover:brightness-110"
         >
-          {view.canDeclare ? 'Verify your identity' : 'See your verification'}
+          {canAct(view) ? 'Verify your identity' : 'See your verification'}
         </Link>
       )}
     </>
